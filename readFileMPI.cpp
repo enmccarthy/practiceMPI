@@ -4,15 +4,17 @@
  
 int main(int argc, char *argv[]) 
 { 
-    MPI_File fh;
+    int bufsize, *buf;
+	int rank, nprocs;
+	MPI_File fh;
 	MPI_Status status;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+	int FILESIZE;
 	bufsize = FILESIZE/nprocs;
-	nints = bufsize/sizeof(int);
+	int nints = bufsize/sizeof(int);
 
-	MPI_File_open(MPI_COMM_WORLD, 'File',
-	MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+	MPI_File_open(MPI_COMM_WORLD, "File", MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
 	//two things I need to do
 	//NPY files
 	//1. ignore the header and try splitting the file
