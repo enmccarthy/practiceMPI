@@ -1,3 +1,4 @@
+
 #include <iostream> 
 #include "mpi.h" 
  
@@ -11,7 +12,7 @@ int main(int argc, char *argv[])
 	nints = bufsize/sizeof(int);
 
 	MPI_File_open(MPI_COMM_WORLD, 'File',
-		MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+	MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
 	//two things I need to do
 	//NPY files
 	//1. ignore the header and try splitting the file
