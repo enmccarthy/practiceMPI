@@ -3,11 +3,7 @@
 #include <fstream> 
 #include <sstream>
 int main(int argc, char *argv[]) 
-{    
-	std::fstream testFile;
-	testFile.open("testfile.txt");
-	testFile<<"IS THIS WORKING";
-	testFile.close();
+{
 	int bufsize;
 	int rank, nprocs;
 	MPI_Init(0,0);
@@ -34,7 +30,7 @@ int main(int argc, char *argv[])
 	MPI_File_seek(fh, rank*bufsize, MPI_SEEK_SET);
 	MPI_File_read(fh, buf, nints, MPI_INT, &status);
 	MPI_File_close(&fh);
-	std::fstream output;
+	std::ofstream output;
 	std::string outname = "output";
 	std::string out;
 	std::stringstream ss;
