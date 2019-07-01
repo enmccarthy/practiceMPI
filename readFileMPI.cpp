@@ -13,11 +13,13 @@ int main(int argc, char *argv[])
 	MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
 	MPI_Offset FILESIZE;
 	MPI_File_open(MPI_COMM_WORLD, "test.npy", MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
-	MPI_File_get_size(fh, &FILESIZE); 
-	bufsize = FILESIZE/nprocs;
-	int nints = bufsize/sizeof(int);	
-	//std::cout<<FILESIZE<< "filesize";	
-	int buf[bufsize];
+	MPI_File_get_size(fh, &FILESIZE);
+	std::cout<<FILESIZE;
+	std::cout<<" " << sizeof(long long int);
+	 
+	bufsize = (FILESIZE-128)/nprocs;
+	int nints = bufsize/sizeof(long long int);		
+	long long int buf[nints];
 	//two things I need to do
 	//NPY files
 	//1. ignore the header and try splitting the file
@@ -26,10 +28,12 @@ int main(int argc, char *argv[])
 	//	3.b get the shape from the header and modify the split of the file
 	//      NPZ files
 	//      1. if .npz then get each .npy portion of this or look into how it is implemented
-	std::cout<<rank<< "rank ";
-	MPI_File_seek(fh, rank*bufsize, MPI_SEEK_SET);
-	MPI_File_read(fh, buf, nints, MPI_INT, &status);
+	std::cout<<" " << nints << " ";
+	std::cout<<rank<< " rank ";
+	MPI_File_seek(fh, (rank*bufsize)+128, MPI_SEEK_SET);
+	MPI_File_read(fh, buf, nints, MPI_LONG_LONG, &status);
 	MPI_File_close(&fh);
+	
 	std::ofstream output;
 	std::string outname = "output";
 	std::string out;
@@ -37,12 +41,10 @@ int main(int argc, char *argv[])
 	ss << rank;
 	out = ss.str();
 	outname.append(out);
-	std::cout<<rank<<"wut";
 	outname.append(".txt");
 	output.open(outname.c_str());
-	output<<"running";
-	std::cout<<outname;
-	for(int iter =0; iter < bufsize; iter++) {
+
+	for(int iter =0; iter < nints; iter++) {
 		output << buf[iter] << " ";
 		//std::cout<<"here";
 	} 
