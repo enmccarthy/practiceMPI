@@ -2,54 +2,84 @@
 #include "mpi.h" 
 #include <fstream> 
 #include <sstream>
+#include <vector>
+#include <cstring>
+#include <string>
+//read file using MPI
+// filename of input file
+// vector of ints which represent the shape of the datastructure (ex: (1,2,3), vector<int> vect{1,2,3})
+// 	did this to accomodate different shapes
+// dtype should be an int representing number of bytes of possibly MPI_data_type (**come back to this**)
+// debug, should it write out the values to check for acc or whatever debug is implemented
 int main(int argc, char *argv[]) 
 {
+	// from the command line pass in a path to the file
+	//program name, file name, dtype, shape 
+	MPI_Init(0,0);
+	bool debug = true;
+	std::string filename = "";
+	std::string dtype = "";
+	std::vector<int> shape;
+	for (int i =0; i <argc; i++) { 
+		if (strcmp(argv[i], "-s")) {
+			i++;
+			while((i < argc) && !(strcmp(argv[i], "-f")) && !(strcmp(argv[i], "-d"))) {
+				std::cout<<"here"<<" "<< argv[i];
+				std::string str = argv[i];
+				shape.push_back(std::stoi(str));
+				i++;
+			} 
+		} else if (strcmp(argv[i], "-f")) {
+			i++;
+			filename = argv[i];
+			std::cout<<filename<<" ";
+			//TODO: make sure it ends in .npy
+		} else if (strcmp(argv[i],"-d")) {
+			i++;
+			dtype = argv[i]; 
+		}
+	}
+	if ((dtype == "") && (shape.size() == 0)) {
+		//TODO: parse header
+	}
+	// TODO: get the right datatype
 	int bufsize;
 	int rank, nprocs;
-	MPI_Init(0,0);
 	MPI_File fh;
 	MPI_Status status;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
 	MPI_Offset FILESIZE;
-	MPI_File_open(MPI_COMM_WORLD, "test.npy", MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+	MPI_File_open(MPI_COMM_WORLD, filename.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
 	MPI_File_get_size(fh, &FILESIZE);
-	std::cout<<FILESIZE;
-	std::cout<<" " << sizeof(long long int);
-	 
+	//TODO: think about if this should be shape*shape*shape*dtype to validate the size of the header
+	//TODO: fix this
 	bufsize = (FILESIZE-128)/nprocs;
-	int nints = bufsize/sizeof(long long int);		
+	int nints = bufsize/sizeof(long long int);
+	//TODO: can this be changed to the MPI type ????
 	long long int buf[nints];
-	//two things I need to do
-	//NPY files
-	//1. ignore the header and try splitting the file
-	//2. assume I have the dimensions of the array
-	//	2.a skip the header
-	//	3.b get the shape from the header and modify the split of the file
-	//      NPZ files
-	//      1. if .npz then get each .npy portion of this or look into how it is implemented
-	std::cout<<" " << nints << " ";
-	std::cout<<rank<< " rank ";
+	
+
+	// reading in TODO: change the variables to not be hardcoded
 	MPI_File_seek(fh, (rank*bufsize)+128, MPI_SEEK_SET);
 	MPI_File_read(fh, buf, nints, MPI_LONG_LONG, &status);
 	MPI_File_close(&fh);
 	
-	std::ofstream output;
-	std::string outname = "output";
-	std::string out;
-	std::stringstream ss;
-	ss << rank;
-	out = ss.str();
-	outname.append(out);
-	outname.append(".txt");
-	output.open(outname.c_str());
-
-	for(int iter =0; iter < nints; iter++) {
-		output << buf[iter] << " ";
-		//std::cout<<"here";
-	} 
-	output.close();
+	if (debug) {
+		std::ofstream output;
+		std::string outname = "output";
+		std::string out;
+		std::stringstream ss;
+		ss << rank;
+		out = ss.str();
+		outname.append(out);
+		outname.append(".txt");
+		output.open(outname.c_str());
+		for (int iter = 0; iter < nints; iter++) {
+			output << buf[iter] << " ";
+		}
+		output.close();
+	}
 	MPI_Finalize();
 	return 0;
-		
 }
