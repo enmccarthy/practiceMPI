@@ -15,26 +15,34 @@ int main(int argc, char *argv[])
 {
 	// from the command line pass in a path to the file
 	//program name, file name, dtype, shape 
-	MPI_Init(0,0);
+	MPI_Init(&argc,&argv);
 	bool debug = true;
 	std::string filename = "";
 	std::string dtype = "";
 	std::vector<int> shape;
+	std::cout<<"argc "<< argc ;
 	for (int i =0; i <argc; i++) { 
-		if (strcmp(argv[i], "-s")) {
+		std::cout<<"in for loop "<<argv[i]<<std::endl;
+		std::cout<<(strcmp(argv[i], "-s")==0)<<" string compare " << argv[i]<<std::endl;
+		if (strcmp(argv[i], "-s")==0) {
+			std::cout<<i<< " before ";
 			i++;
-			while((i < argc) && !(strcmp(argv[i], "-f")) && !(strcmp(argv[i], "-d"))) {
+			std::cout<<i<<" after ";
+			std::cout<<"here ";
+			std::cout<<argv[i]<< " what ";
+			while((i < argc) && !(strcmp(argv[i], "-f")==0) && !(strcmp(argv[i], "-d")==0)) {
 				std::cout<<"here"<<" "<< argv[i];
 				std::string str = argv[i];
 				shape.push_back(std::stoi(str));
 				i++;
 			} 
-		} else if (strcmp(argv[i], "-f")) {
+		} else if (strcmp(argv[i], "-f")==0) {
+			std::cout<<i<< "file flag i "<<std::endl;
 			i++;
 			filename = argv[i];
-			std::cout<<filename<<" ";
+			std::cout<<filename<<" got the filename ";
 			//TODO: make sure it ends in .npy
-		} else if (strcmp(argv[i],"-d")) {
+		} else if (strcmp(argv[i],"-d")==0) {
 			i++;
 			dtype = argv[i]; 
 		}
