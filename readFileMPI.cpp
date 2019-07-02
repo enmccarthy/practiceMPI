@@ -9,7 +9,7 @@
 // filename of input file
 // vector of ints which represent the shape of the datastructure (ex: (1,2,3), vector<int> vect{1,2,3})
 // 	did this to accomodate different shapes
-// dtype should be an int representing number of bytes of possibly MPI_data_type (**come back to this**)
+// dtype should be an int representing number of bytes of possibly MPI_data_type (*come back to this*)
 // debug, should it write out the values to check for acc or whatever debug is implemented
 int main(int argc, char *argv[]) 
 {
@@ -54,11 +54,25 @@ int main(int argc, char *argv[])
 	//TODO: fix this
 	bufsize = (FILESIZE-128)/nprocs;
 	int nints = bufsize/sizeof(long long int);
-	//TODO: can this be changed to the MPI type ????
+	//TODO: can this be changed to the MPI type ????, probably fix w templating
 	long long int buf[nints];
-	
+	//TODO: maybe this should be changed to have a shape size of 1
+	// this should probably be changed I dont like how the positions change with channel
+	// but it should probably match the other implementation and is trivial here
+	int channel = 1;
+	int numSamples = 0;
+	int x = shape[0];
+	int y = shape[1];
+	if (shape.size()==3) {
+		numSamples = shape[2];
+	} else if (shape.size() ==4) {
+		channels = shape[2];
+		numSamples = shape[3];
+	}
 
 	// reading in TODO: change the variables to not be hardcoded
+	// this is going to need to be in the for loop
+	
 	MPI_File_seek(fh, (rank*bufsize)+128, MPI_SEEK_SET);
 	MPI_File_read(fh, buf, nints, MPI_LONG_LONG, &status);
 	MPI_File_close(&fh);
