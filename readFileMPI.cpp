@@ -20,31 +20,21 @@ int main(int argc, char *argv[])
 	std::string filename = "";
 	std::string dtype = "";
 	std::vector<int> shape;
-	std::cout<<"argc "<< argc ;
 	for (int i =0; i <argc; i++) { 
-		std::cout<<"in for loop "<<argv[i]<<std::endl;
-		std::cout<<(strcmp(argv[i], "-s")==0)<<" string compare " << argv[i]<<std::endl;
 		if (strcmp(argv[i], "-s")==0) {
-			std::cout<<i<< " before ";
 			i++;
-			std::cout<<i<<" after ";
-			std::cout<<"here ";
-			std::cout<<argv[i]<< " what ";
-			while((i < argc) && !(strcmp(argv[i], "-f")==0) && !(strcmp(argv[i], "-d")==0)) {
-				std::cout<<"here"<<" "<< argv[i];
+			while((i < argc) 
+					&& !(strcmp(argv[i], "-f")==0) 
+					&& !(strcmp(argv[i], "-d")==0)) {
 				std::string str = argv[i];
 				shape.push_back(std::stoi(str));
 				i++;
 			} 
 		} else if (strcmp(argv[i], "-f")==0) {
-			std::cout<<i<< "file flag i "<<std::endl;
-			i++;
-			filename = argv[i];
-			std::cout<<filename<<" got the filename ";
+			filename = argv[++i];
 			//TODO: make sure it ends in .npy
 		} else if (strcmp(argv[i],"-d")==0) {
-			i++;
-			dtype = argv[i]; 
+			dtype = argv[++i]; 
 		}
 	}
 	if ((dtype == "") && (shape.size() == 0)) {
@@ -103,9 +93,23 @@ int main(int argc, char *argv[])
 // |     |     |   bottomL is 6x3 	
 // |     |     |   tobR is 5x4
 // |_____|_____|   bottomR is 5x3
-// |     |     |   int division and subtration should help get these coordinates
+// |     |     |   int division,num of proc and subtraction should help get this
 // |     |     |   reading bytes in it would be 6xnumbytes to read in then next line
 // |_____|_____|   which is 5xnumbytes away, and do this 4 times
 // 				   Next you need to read in the 3rd dimension which means skip the whole sec
 // 				   ond half which would be 11x3xnumbytes for the number in the 3rd dim
 // 4D --- each dimension adds a for loop will need to think more about it
+// what would 4D look like and what is the important part to split
+// need to think about how to do this for n dimensions without knowing the number of 
+// dimensions before hand
+// need to benchmark at somepoint
+// x = 11
+// y = 7 
+// nodes = 2
+// the options to give x and y, assume this has been optimized else where or
+// just divide for now
+//
+// portionX = x/nodes
+// startX = portionX*rank
+// how to deal with the odd
+// idea: structure as 4d so we have an x,y,z and layers where z is the number of datapoints
