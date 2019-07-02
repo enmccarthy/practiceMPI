@@ -91,3 +91,21 @@ int main(int argc, char *argv[])
 	MPI_Finalize();
 	return 0;
 }
+// Things to think about
+// Templating the type depending on what is in the file 
+// how to get the specific shape divide throughout the sample
+// just split off of number of processes/nodes? this will probably be dictated elsewhere 
+// 2D trivial, just split based off # of processes
+// 3D 
+// Odd case 11x7x30
+//  ___________
+// |     |     |   topL is 6x4
+// |     |     |   bottomL is 6x3 	
+// |     |     |   tobR is 5x4
+// |_____|_____|   bottomR is 5x3
+// |     |     |   int division and subtration should help get these coordinates
+// |     |     |   reading bytes in it would be 6xnumbytes to read in then next line
+// |_____|_____|   which is 5xnumbytes away, and do this 4 times
+// 				   Next you need to read in the 3rd dimension which means skip the whole sec
+// 				   ond half which would be 11x3xnumbytes for the number in the 3rd dim
+// 4D --- each dimension adds a for loop will need to think more about it
