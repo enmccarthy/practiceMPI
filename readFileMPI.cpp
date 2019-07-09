@@ -69,12 +69,24 @@ int main(int argc, char *argv[])
 		channels = shape[2];
 		numSamples = shape[3];
 	}
-
+	int headerlen = 128;
 	// reading in TODO: change the variables to not be hardcoded
 	// this is going to need to be in the for loop
-	
-	MPI_File_seek(fh, (rank*bufsize)+128, MPI_SEEK_SET);
-	MPI_File_read(fh, buf, nints, MPI_LONG_LONG, &status);
+	// should x and y be in bytes
+	int seekvalue = 0;
+	for (int iterS = 0; iterS < numSamples; iterS++) {
+		for (int iterC = 0; iterC < channels; iterC++) {
+			for (int iterY = 0; iterY < y; iterY++) {
+				// this needs to be the full x or y 
+				seekvalue = (numsamples*x*y*channels) + (iterC*x*y) + (iterY*x)
+				MPI_File_seek(fh, seekvalue+headerlen, MPI_SEEK_SET);
+				// I will need to think about buf, possibly pass a pointer
+				// to the position of buf 
+				// this should be the split x and y just advance the x pointer 
+				MPI_File_read(fh, buf[x*y], x, MPI_LONG_LONG, &status);
+			}
+		}
+	}
 	MPI_File_close(&fh);
 	
 	if (debug) {
