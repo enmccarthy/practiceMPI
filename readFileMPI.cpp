@@ -14,18 +14,20 @@
 int main(int argc, char *argv[]) 
 {
 	// from the command line pass in a path to the file
-	//program name, file name, dtype, shape 
+	//program name, file name (-f), dtype (-d), shape (-s) , word size (-w) 
 	MPI_Init(&argc,&argv);
 	bool debug = true;
 	std::string filename = "";
 	std::string dtype = "";
 	std::vector<int> shape;
+	int wordsize;
 	for (int i =0; i <argc; i++) { 
 		if (strcmp(argv[i], "-s")==0) {
 			i++;
 			while((i < argc) 
 					&& !(strcmp(argv[i], "-f")==0) 
-					&& !(strcmp(argv[i], "-d")==0)) {
+					&& !(strcmp(argv[i], "-d")==0)
+					&& !(strcmp(argv[i], "-w")==0)) {
 				std::string str = argv[i];
 				shape.push_back(std::stoi(str));
 				i++;
@@ -35,12 +37,13 @@ int main(int argc, char *argv[])
 			//TODO: make sure it ends in .npy
 		} else if (strcmp(argv[i],"-d")==0) {
 			dtype = argv[++i]; 
+		} else if (strcmp(argv[i], "-w")==0) {
+			wordsize = std::stoi(argv[++i]); 
 		}
 	}
 	if ((dtype == "") && (shape.size() == 0)) {
 		//TODO: parse header
 	}
-	// TODO: get the right datatype
 	int bufsize;
 	int rank, nprocs;
 	MPI_File fh;
@@ -50,19 +53,20 @@ int main(int argc, char *argv[])
 	MPI_Offset FILESIZE;
 	MPI_File_open(MPI_COMM_WORLD, filename.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
 	MPI_File_get_size(fh, &FILESIZE);
-	//TODO: think about if this should be shape*shape*shape*dtype to validate the size of the header
-	//TODO: fix this
-	bufsize = (FILESIZE-128)/nprocs;
-	int nints = bufsize/sizeof(long long int);
-	//TODO: can this be changed to the MPI type ????, probably fix w templating
-	long long int buf[nints];
+	// get total buf size
+	for (int shapeI = 0; shapeI < shape.size(); shapeI++) {
+		bufsize = bufsize*shape[shapeI];
+	} 
+	bufsize = (bufsize*wordsize)/nprocs;
+	int nints = bufsize/wordsize;
+	float* buf;
 	//TODO: maybe this should be changed to have a shape size of 1
 	// this should probably be changed I dont like how the positions change with channel
 	// but it should probably match the other implementation and is trivial here
-	int channel = 1;
+	int channels = 1;
 	int numSamples = 0;
-	int x = shape[0];
-	int y = shape[1];
+	int x = shape[0]*wordsize;
+	int y = shape[1]*wordsize;
 	if (shape.size()==3) {
 		numSamples = shape[2];
 	} else if (shape.size() ==4) {
@@ -72,18 +76,26 @@ int main(int argc, char *argv[])
 	int headerlen = 128;
 	// reading in TODO: change the variables to not be hardcoded
 	// this is going to need to be in the for loop
-	// should x and y be in bytes
+	// should x and y be in bytes since I made it number of bytes I think this for loop 
+	// needs to change
 	int seekvalue = 0;
 	for (int iterS = 0; iterS < numSamples; iterS++) {
 		for (int iterC = 0; iterC < channels; iterC++) {
 			for (int iterY = 0; iterY < y; iterY++) {
 				// this needs to be the full x or y 
-				seekvalue = (numsamples*x*y*channels) + (iterC*x*y) + (iterY*x)
+				seekvalue = (numSamples*x*y*channels) + (iterC*x*y) + (iterY*x);
 				MPI_File_seek(fh, seekvalue+headerlen, MPI_SEEK_SET);
 				// I will need to think about buf, possibly pass a pointer
 				// to the position of buf 
-				// this should be the split x and y just advance the x pointer 
-				MPI_File_read(fh, buf[x*y], x, MPI_LONG_LONG, &status);
+				// this should be the split x and y just advance the x pointer
+				// this should be based off of word size I think, possibly datatype 
+				if (dtype == "d") {
+					MPI_File_read(fh,(double*) &buf[x*y], x, MPI_LONG_LONG, &status);
+				} else if (dtype == "i") {
+					MPI_File_read(fh, &buf[x*y], x, MPI_LONG_LONG, &status);
+				} else {
+					MPI_File_read(fh, &buf[x*y], x, MPI_LONG_LONG, &status);
+				}
 			}
 		}
 	}
@@ -100,6 +112,7 @@ int main(int argc, char *argv[])
 		outname.append(".txt");
 		output.open(outname.c_str());
 		for (int iter = 0; iter < nints; iter++) {
+			//TODO: this isnt right but it will be something like this
 			output << buf[iter] << " ";
 		}
 		output.close();
