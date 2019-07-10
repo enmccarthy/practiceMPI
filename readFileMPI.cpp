@@ -15,35 +15,48 @@ int main(int argc, char *argv[])
 {
 	// from the command line pass in a path to the file
 	//program name, file name (-f), dtype (-d), shape (-s) , word size (-w) 
+	std::cout<<"true start";
 	MPI_Init(&argc,&argv);
 	bool debug = true;
 	std::string filename = "";
 	std::string dtype = "";
 	std::vector<int> shape;
 	int wordsize;
+	std::cout<<"start";
 	for (int i =0; i <argc; i++) { 
 		if (strcmp(argv[i], "-s")==0) {
 			i++;
+			std::cout<<"hellooooo";
+			std::cout<< argv[i];
 			while((i < argc) 
 					&& !(strcmp(argv[i], "-f")==0) 
 					&& !(strcmp(argv[i], "-d")==0)
 					&& !(strcmp(argv[i], "-w")==0)) {
 				std::string str = argv[i];
+				std::cout<<std::stoi(str)<<" shape \n";
 				shape.push_back(std::stoi(str));
 				i++;
 			} 
-		} else if (strcmp(argv[i], "-f")==0) {
+			std::cout<<"shape";
+		} 
+		if (strcmp(argv[i], "-f")==0) {
 			filename = argv[++i];
+			std::cout<<"file";
 			//TODO: make sure it ends in .npy
 		} else if (strcmp(argv[i],"-d")==0) {
 			dtype = argv[++i]; 
+			std::cout<<"dtype";
 		} else if (strcmp(argv[i], "-w")==0) {
-			wordsize = std::stoi(argv[++i]); 
+			wordsize = std::stoi(argv[++i]);
+			std::cout <<"\n" <<argv[i] << "word flag\n";
+			std::cout<< "wordsize " << wordsize << "\n"; 
 		}
 	}
-	if ((dtype == "") && (shape.size() == 0)) {
+	std::cout<<"here";
+	//if ((dtype == "") && (shape.size() == 0)) {
 		//TODO: parse header
-	}
+	//}
+	std::cout<< "word size" << wordsize << "\n";
 	int bufsize;
 	int rank, nprocs;
 	MPI_File fh;
@@ -54,48 +67,62 @@ int main(int argc, char *argv[])
 	MPI_File_open(MPI_COMM_WORLD, filename.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
 	MPI_File_get_size(fh, &FILESIZE);
 	// get total buf size
+	int tempbufsize = 1;
 	for (int shapeI = 0; shapeI < shape.size(); shapeI++) {
-		bufsize = bufsize*shape[shapeI];
+		bufsize = tempbufsize*shape[shapeI];
+		tempbufsize = bufsize;
 	} 
-	bufsize = (bufsize*wordsize)/nprocs;
+	bufsize = (tempbufsize*wordsize)/nprocs;
+	std::cout<<bufsize<< " bufsize \n";
 	int nints = bufsize/wordsize;
-	float* buf;
+	std::cout<< nints << "nints \n";
+	long long int  buf[nints];
+	
 	//TODO: maybe this should be changed to have a shape size of 1
 	// this should probably be changed I dont like how the positions change with channel
 	// but it should probably match the other implementation and is trivial here
 	int channels = 1;
-	int numSamples = 0;
+	int numSamples = 1;
+	std::cout<<shape.size()<< " shape size \n";
+	// this needs to be relative to the number of processes 
 	int x = shape[0]*wordsize;
-	int y = shape[1]*wordsize;
+	int y = shape[1];
+	std::cout<<y<<" y \n";
+	std::cout<<x<<"\n";
 	if (shape.size()==3) {
 		numSamples = shape[2];
 	} else if (shape.size() ==4) {
 		channels = shape[2];
 		numSamples = shape[3];
 	}
+	//TODO: should this be set from the header?
 	int headerlen = 128;
-	// reading in TODO: change the variables to not be hardcoded
-	// this is going to need to be in the for loop
-	// should x and y be in bytes since I made it number of bytes I think this for loop 
-	// needs to change
+	//if (dtype == "d") {
+	//	buf = reinterpret_cast<double*>(buf);
+	//	buf = new double[nints];
+	//} else if (dtype == "i") {
+	//	buf = new int[nints];
+	//} else {
+	//	buf = new float[nints];
+	//}
 	int seekvalue = 0;
 	for (int iterS = 0; iterS < numSamples; iterS++) {
 		for (int iterC = 0; iterC < channels; iterC++) {
-			for (int iterY = 0; iterY < y; iterY++) {
+			for (int iterY = 0; iterY < shape[1]; iterY++) {
 				// this needs to be the full x or y 
 				seekvalue = (numSamples*x*y*channels) + (iterC*x*y) + (iterY*x);
-				MPI_File_seek(fh, seekvalue+headerlen, MPI_SEEK_SET);
+				MPI_File_seek(fh, (seekvalue*rank)+headerlen, MPI_SEEK_SET);
 				// I will need to think about buf, possibly pass a pointer
 				// to the position of buf 
 				// this should be the split x and y just advance the x pointer
 				// this should be based off of word size I think, possibly datatype 
-				if (dtype == "d") {
-					MPI_File_read(fh,(double*) &buf[x*y], x, MPI_LONG_LONG, &status);
-				} else if (dtype == "i") {
-					MPI_File_read(fh, &buf[x*y], x, MPI_LONG_LONG, &status);
-				} else {
-					MPI_File_read(fh, &buf[x*y], x, MPI_LONG_LONG, &status);
-				}
+				//if (dtype == "d") {
+				MPI_File_read(fh,&buf[x*y], x, MPI_LONG_LONG, &status);
+				//} else if (dtype == "i") {
+				//	MPI_File_read(fh,(int*) &buf[x*y], x, MPI_LONG_LONG, &status);
+				//} else {
+				//	MPI_File_read(fh, &buf[x*y], x, MPI_LONG_LONG, &status);
+				//}
 			}
 		}
 	}
