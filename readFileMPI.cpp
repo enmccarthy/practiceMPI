@@ -15,48 +15,36 @@ int main(int argc, char *argv[])
 {
 	// from the command line pass in a path to the file
 	//program name, file name (-f), dtype (-d), shape (-s) , word size (-w) 
-	std::cout<<"true start";
 	MPI_Init(&argc,&argv);
 	bool debug = true;
 	std::string filename = "";
 	std::string dtype = "";
 	std::vector<int> shape;
 	int wordsize;
-	std::cout<<"start";
 	for (int i =0; i <argc; i++) { 
 		if (strcmp(argv[i], "-s")==0) {
 			i++;
-			std::cout<<"hellooooo";
-			std::cout<< argv[i];
 			while((i < argc) 
 					&& !(strcmp(argv[i], "-f")==0) 
 					&& !(strcmp(argv[i], "-d")==0)
 					&& !(strcmp(argv[i], "-w")==0)) {
 				std::string str = argv[i];
-				std::cout<<std::stoi(str)<<" shape \n";
 				shape.push_back(std::stoi(str));
 				i++;
 			} 
-			std::cout<<"shape";
 		} 
 		if (strcmp(argv[i], "-f")==0) {
 			filename = argv[++i];
-			std::cout<<"file";
 			//TODO: make sure it ends in .npy
 		} else if (strcmp(argv[i],"-d")==0) {
 			dtype = argv[++i]; 
-			std::cout<<"dtype";
 		} else if (strcmp(argv[i], "-w")==0) {
-			wordsize = std::stoi(argv[++i]);
-			std::cout <<"\n" <<argv[i] << "word flag\n";
-			std::cout<< "wordsize " << wordsize << "\n"; 
+			wordsize = std::stoi(argv[++i]); 
 		}
 	}
-	std::cout<<"here";
 	//if ((dtype == "") && (shape.size() == 0)) {
 		//TODO: parse header
 	//}
-	std::cout<< "word size" << wordsize << "\n";
 	int bufsize;
 	int rank, nprocs;
 	MPI_File fh;
@@ -77,6 +65,7 @@ int main(int argc, char *argv[])
 	int nints = bufsize/wordsize;
 	std::cout<< nints << "nints \n";
 	long long int  buf[nints];
+	long long int *bufP = buf;
 	
 	//TODO: maybe this should be changed to have a shape size of 1
 	// this should probably be changed I dont like how the positions change with channel
@@ -85,7 +74,7 @@ int main(int argc, char *argv[])
 	int numSamples = 1;
 	std::cout<<shape.size()<< " shape size \n";
 	// this needs to be relative to the number of processes 
-	int x = shape[0]*wordsize;
+	int x = (shape[0]*wordsize/nprocs);
 	int y = shape[1];
 	std::cout<<y<<" y \n";
 	std::cout<<x<<"\n";
@@ -105,19 +94,22 @@ int main(int argc, char *argv[])
 	//} else {
 	//	buf = new float[nints];
 	//}
+	//things to check, divide the y as well ??? 
+	//have an odd and an even case
 	int seekvalue = 0;
 	for (int iterS = 0; iterS < numSamples; iterS++) {
 		for (int iterC = 0; iterC < channels; iterC++) {
-			for (int iterY = 0; iterY < shape[1]; iterY++) {
+			for (int iterY = 0; iterY < (shape[1]/nprocs); iterY++) {
 				// this needs to be the full x or y 
-				seekvalue = (numSamples*x*y*channels) + (iterC*x*y) + (iterY*x);
-				MPI_File_seek(fh, (seekvalue*rank)+headerlen, MPI_SEEK_SET);
-				// I will need to think about buf, possibly pass a pointer
-				// to the position of buf 
+				seekvalue = (numSamples*x*(y/nprocs)*channels) + (iterC*x*(y/nprocs)) + (iterY*x);
+				std::cout<<seekvalue<<" seek value \n";
+				MPI_File_seek(fh, (seekvalue*rank)+headerlen, MPI_SEEK_SET); 
 				// this should be the split x and y just advance the x pointer
 				// this should be based off of word size I think, possibly datatype 
 				//if (dtype == "d") {
-				MPI_File_read(fh,&buf[x*y], x, MPI_LONG_LONG, &status);
+				bufP = bufP + ((shape[0]/nprocs)*iterY);
+				std::cout<<(shape[0]/nprocs)*iterY<< " iter increasing \n";
+				MPI_File_read(fh,bufP, (shape[0]/nprocs), MPI_LONG_LONG, &status);
 				//} else if (dtype == "i") {
 				//	MPI_File_read(fh,(int*) &buf[x*y], x, MPI_LONG_LONG, &status);
 				//} else {
@@ -139,7 +131,6 @@ int main(int argc, char *argv[])
 		outname.append(".txt");
 		output.open(outname.c_str());
 		for (int iter = 0; iter < nints; iter++) {
-			//TODO: this isnt right but it will be something like this
 			output << buf[iter] << " ";
 		}
 		output.close();
