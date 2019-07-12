@@ -86,6 +86,8 @@ int main(int argc, char *argv[])
 		channels = shape[2];
 		numSamples = shape[3];
 	}
+	int ylines = 1;
+	int xlines = 0;
 	//TODO: should this be set from the header?
 	int headerlen = 128;
 	int seekvalue = 0;
@@ -100,8 +102,12 @@ int main(int argc, char *argv[])
 					seekvalue = (xPerNode*wordsize);
 				}
 				std::cout<<(seekvalue)<<" seek value \n";
-				MPI_File_seek(fh,(8000*rank), MPI_SEEK_CUR); 
-				MPI_File_read(fh, bufP, xPerNode, MPI_LONG_LONG, &status);
+				MPI_File_seek(fh,(seekvalue*rank), MPI_SEEK_CUR);
+				if (xPerNode < x) {
+					bufP = bufP + (xPerNode*rank);
+				} else { 
+					MPI_File_read(fh, bufP, xPerNode, MPI_LONG_LONG, &status);
+				}
 				bufP = bufP + xPerNode;
 			}
 		}
