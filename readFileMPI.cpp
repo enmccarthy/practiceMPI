@@ -65,8 +65,6 @@ int main(int argc, char *argv[])
 	std::cout<<bufsize<< " bufsize \n";
 	int nints = bufsize;
 	std::cout<< nints << "nints \n";
-	long long int  buf[nints];
-	long long int *bufP = buf;
 	
 	//TODO: as input
 	int channels = 1;
@@ -128,32 +126,36 @@ int main(int argc, char *argv[])
 			iterS = ((sPerNode+1)*rank);
 			sPerNode++;
 		} else {
-			iterS = ((iterS+1)*(s%sPerNode)) + (
+			iterS = ((iterS+1)*(s%sPerNode)) + (sPerNode*(rank-(s*sPerNode)));
 		}
-	}  
+	}
+	  
+	long long int  buf[(xPerNode*yPerNode*zPerNode*sPerNode)];
+	long long int *bufP = buf;
 	//TODO: should be set from header value to confirm 128 (as is most of the time)
 	int headerlen = 128;
 	int seekvalue = 0;
 	for (; iterS < (iterS+sPerNode); iterS++) {
-		for (; iterC < (iterZ+zPerNode); iterC++) {
-			for (; iterY < (+yPerNode); iterY++) {
+		for (; iterZ < (iterZ+zPerNode); iterC++) {
+			for (; iterY < (iterY+yPerNode); iterY++) {
 				// change seek value to match
 				// is this correct for higher dimensions, what if I split S
-				if (seekvalue == 0) {
-					seekvalue = iterY+headerlen;
+				// 
+				if (seekvalue == -1) {
+					seekvalue = (((iterS*x*y*z)+(iterZ*x*y)+(iterY*x))*wordsize)+headerlen;
+				} else if (seekvalue == 0) {
+					// when it is resetting
+					seekvalue = ((iterS*x*y*z)+(iterZ*x*y)+(iterY*x))*wordsize;
 				} else {
-					// this is not right
-					seekvalue = (xPerNode*wordsize);
+					seekvalue = ((iterY*x)+iterX)*wordsize;
 				}
+				// does reading move the pointer I dont think so
 				std::cout<<(seekvalue)<<" seek value \n";
-				MPI_File_seek(fh,(seekvalue*rank), MPI_SEEK_CUR);
-				if (xPerNode < x) {
-					bufP = bufP + (xPerNode*rank);
-				} else { 
-					MPI_File_read(fh, bufP, xPerNode, MPI_LONG_LONG, &status);
-				}
+				MPI_File_seek(fh,seekvalue, MPI_SEEK_CUR);
+				MPI_File_read(fh, bufP, xPerNode, MPI_LONG_LONG, &status);
 				bufP = bufP + xPerNode;
 			}
+			seekvalue = 0;
 		}
 	}
 	MPI_File_close(&fh);
