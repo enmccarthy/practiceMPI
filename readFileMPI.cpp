@@ -72,6 +72,9 @@ int main(int argc, char *argv[])
 	std::cout<<shape.size()<< " shape size \n"; 
 	int x = shape[0];
 	int y = shape[1];
+	int z = 1;
+	int s = 1; // this might be channels
+	// in this case the samples are in different files
 	if (shape.size()==3) {
 		numSamples = shape[2];
 	} else if (shape.size() ==4) {
@@ -114,14 +117,14 @@ int main(int argc, char *argv[])
 		}
 	}
 	if (zlines > 1) {
-		if(rank < (z%zPerNodel)) {
+		if(rank < (z%zPerNode)) {
 			iterZ = (zPerNode+1)*rank;
 			zPerNode++;
 		} else {
 			iterZ = ((iterZ+1)*(z%zPerNode)) + (zPerNode*(rank-(z*zPerNode)));
 		}
 	}
-	if (slines > 1) {
+	if (samplelines > 1) {
 		if (rank < (s%sPerNode)) {
 			iterS = ((sPerNode+1)*rank);
 			sPerNode++;
@@ -129,14 +132,18 @@ int main(int argc, char *argv[])
 			iterS = ((iterS+1)*(s%sPerNode)) + (sPerNode*(rank-(s*sPerNode)));
 		}
 	}
-	  
+	std::cout<<xPerNode <<"xPerNode \n";
 	long long int  buf[(xPerNode*yPerNode*zPerNode*sPerNode)];
 	long long int *bufP = buf;
 	//TODO: should be set from header value to confirm 128 (as is most of the time)
 	int headerlen = 128;
-	int seekvalue = 0;
+	int seekvalue = -1;
+	std::cout<<iterS << "iterS \n";
+	std::cout<<sPerNode<<"sPerNode \n";
+	std::cout<<xPerNode<<"xPerNode \n";
+	std::cout<<yPerNode<<"yPerNode \n";
 	for (; iterS < (iterS+sPerNode); iterS++) {
-		for (; iterZ < (iterZ+zPerNode); iterC++) {
+		for (; iterZ < (iterZ+zPerNode); iterZ++) {
 			for (; iterY < (iterY+yPerNode); iterY++) {
 				// change seek value to match
 				// is this correct for higher dimensions, what if I split S
@@ -150,7 +157,7 @@ int main(int argc, char *argv[])
 					seekvalue = ((iterY*x)+iterX)*wordsize;
 				}
 				// does reading move the pointer I dont think so
-				std::cout<<(seekvalue)<<" seek value \n";
+				//std::cout<<(seekvalue)<<" seek value \n";
 				MPI_File_seek(fh,seekvalue, MPI_SEEK_CUR);
 				MPI_File_read(fh, bufP, xPerNode, MPI_LONG_LONG, &status);
 				bufP = bufP + xPerNode;
