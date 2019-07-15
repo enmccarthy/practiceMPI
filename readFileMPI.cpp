@@ -68,37 +68,81 @@ int main(int argc, char *argv[])
 	long long int  buf[nints];
 	long long int *bufP = buf;
 	
-	//TODO: maybe this should be changed to have a shape size of 1
-	// this should probably be changed I dont like how the positions change with channel
-	// but it should probably match the other implementation and is trivial here
+	//TODO: as input
 	int channels = 1;
 	int numSamples = 1;
-	std::cout<<shape.size()<< " shape size \n";
-	// this needs to be relative to the number of processes 
+	std::cout<<shape.size()<< " shape size \n"; 
 	int x = shape[0];
 	int y = shape[1];
-	// something hardcoded
-	int xPerNode = 1000;
-	int yPerNode = 500;
 	if (shape.size()==3) {
 		numSamples = shape[2];
 	} else if (shape.size() ==4) {
 		channels = shape[2];
 		numSamples = shape[3];
 	}
+    // default split only along the x but have ways to split across other dimensions
+    // first x%xPerNode partitions will have one extra
+    // the rest will have xPerNode amount
+
+	// these would be input of the ways you wanted it split
+	// look up conditional setting to make this prettier
 	int ylines = 1;
-	int xlines = 0;
-	//TODO: should this be set from the header?
+	int xlines = nprocs;
+    int zlines = 1;
+    int samplelines = 1;
+    int xPerNode = x/xlines;
+	int yPerNode = y/ylines;
+	int zPerNode = z/zlines;
+	int sPerNode = s/samplelines;
+	int iterS = 0; 
+	int iterZ = 0;
+	int iterX = 0;
+	int iterY = 0;
+	// can also check odd here and maybe add one to xPerNode??? 
+	if (xlines > 1) {
+		if(rank < (x%xPerNode)) {
+			iterX = ((xPerNode+1)*rank);
+			xPerNode++; 
+		} else {
+			iterX = ((xPerNode+1)*(x%xPerNode))+(xPerNode*(rank-(x%xPerNode)));
+		}
+	}
+	if (ylines > 1) {
+		if(rank < (y%yPerNode)) {
+			iterY = ((yPerNode+1)*rank);
+			yPerNode++;
+		} else {
+			iterY = ((yPerNode+1)*(y%yPerNode)) + (yPerNode*(rank-(y*yPerNode)));
+		}
+	}
+	if (zlines > 1) {
+		if(rank < (z%zPerNodel)) {
+			iterZ = (zPerNode+1)*rank;
+			zPerNode++;
+		} else {
+			iterZ = ((iterZ+1)*(z%zPerNode)) + (zPerNode*(rank-(z*zPerNode)));
+		}
+	}
+	if (slines > 1) {
+		if (rank < (s%sPerNode)) {
+			iterS = ((sPerNode+1)*rank);
+			sPerNode++;
+		} else {
+			iterS = ((iterS+1)*(s%sPerNode)) + (
+		}
+	}  
+	//TODO: should be set from header value to confirm 128 (as is most of the time)
 	int headerlen = 128;
 	int seekvalue = 0;
-	for (int iterS = 0; iterS < numSamples; iterS++) {
-		for (int iterC = 0; iterC < channels; iterC++) {
-			for (int iterY = (yPerNode*rank); iterY < ((yPerNode*rank)+yPerNode); iterY++) {
-				// seek value for the file
-				// try seek curr
+	for (; iterS < (iterS+sPerNode); iterS++) {
+		for (; iterC < (iterZ+zPerNode); iterC++) {
+			for (; iterY < (+yPerNode); iterY++) {
+				// change seek value to match
+				// is this correct for higher dimensions, what if I split S
 				if (seekvalue == 0) {
-					seekvalue = (yPerNode*rank)+headerlen;
+					seekvalue = iterY+headerlen;
 				} else {
+					// this is not right
 					seekvalue = (xPerNode*wordsize);
 				}
 				std::cout<<(seekvalue)<<" seek value \n";
