@@ -55,21 +55,17 @@ int main(int argc, char *argv[])
 	MPI_File_open(MPI_COMM_WORLD, filename.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
 	MPI_File_get_size(fh, &FILESIZE);
 	// get total buf size
-	std::cout<<FILESIZE<< " FILESIZE \n";
 	int tempbufsize = 1;
 	for (int shapeI = 0; shapeI < shape.size(); shapeI++) {
 		bufsize = tempbufsize*shape[shapeI];
 		tempbufsize = bufsize;
 	} 
 	bufsize = (tempbufsize)/nprocs;
-	std::cout<<bufsize<< " bufsize \n";
 	int nints = bufsize;
-	std::cout<< nints << "nints \n";
 	
 	//TODO: as input
 	int channels = 1;
-	int numSamples = 1;
-	std::cout<<shape.size()<< " shape size \n"; 
+	int numSamples = 1; 
 	int x = shape[0];
 	int y = shape[1];
 	int z = 1;
@@ -101,13 +97,17 @@ int main(int argc, char *argv[])
 	int iterY = 0;
 	// can also check odd here and maybe add one to xPerNode??? 
 	if (xlines > 1) {
+		// if an  odd number then add one to the ranks below
+		// the remainder
 		if(rank < (x%xPerNode)) {
 			iterX = ((xPerNode+1)*rank);
 			xPerNode++; 
 		} else {
 			iterX = ((xPerNode+1)*(x%xPerNode))+(xPerNode*(rank-(x%xPerNode)));
 		}
+		std::cout<<"iterX after \n" << iterX<< "\n";
 	}
+	// if things are in chunks ????????????????
 	if (ylines > 1) {
 		if(rank < (y%yPerNode)) {
 			iterY = ((yPerNode+1)*rank);
@@ -133,38 +133,60 @@ int main(int argc, char *argv[])
 		}
 	}
 	std::cout<<xPerNode <<"xPerNode \n";
-	long long int  buf[(xPerNode*yPerNode*zPerNode*sPerNode)];
-	long long int *bufP = buf;
+	std::cout<<"buf size " << (xPerNode*yPerNode*zPerNode*sPerNode)<<"\n";
+	double  buf[(xPerNode*yPerNode*zPerNode*sPerNode)];
+	double *bufP = buf;
 	//TODO: should be set from header value to confirm 128 (as is most of the time)
 	int headerlen = 128;
 	int seekvalue = -1;
-	std::cout<<iterS << "iterS \n";
-	std::cout<<sPerNode<<"sPerNode \n";
-	std::cout<<xPerNode<<"xPerNode \n";
-	std::cout<<yPerNode<<"yPerNode \n";
-	for (; iterS < (iterS+sPerNode); iterS++) {
-		for (; iterZ < (iterZ+zPerNode); iterZ++) {
-			for (; iterY < (iterY+yPerNode); iterY++) {
+	int gotoS = (iterS+sPerNode);
+	int gotoZ = (iterZ+zPerNode);
+	int gotoY = (iterY+yPerNode);
+	std::cout<<gotoY<<" gotoY \n";
+	// what if y is split and it is all consecutive for x
+	for (; iterS < gotoS; iterS++) {
+		for (; iterZ < gotoZ; iterZ++) {
+			for (; iterY < gotoY; iterY++) {
 				// change seek value to match
-				// is this correct for higher dimensions, what if I split S
-				// 
+				// is this correct for higher dimensions, what if I split S 
 				if (seekvalue == -1) {
-					seekvalue = (((iterS*x*y*z)+(iterZ*x*y)+(iterY*x))*wordsize)+headerlen;
+					seekvalue = (((iterS*x*y*z)+(iterZ*x*y)+(iterY*x)+iterX)*wordsize)+headerlen;
+					std::cout<<" without divide " << 128/8 << "\n";
+					std::cout<<"seek value very first " << seekvalue/8<<"\n";
 				} else if (seekvalue == 0) {
-					// when it is resetting
-					seekvalue = ((iterS*x*y*z)+(iterZ*x*y)+(iterY*x))*wordsize;
+					// when it is resetting, is this right?????
+					seekvalue = ((iterS*x*y*z)+(iterZ*x*y)+(iterY*x)+iterX)*wordsize;
+					std::cout<< "should be resetting " << seekvalue/8<<"\n";
 				} else {
-					seekvalue = ((iterY*x)+iterX)*wordsize;
+					if(xPerNode < x) {
+						seekvalue = xPerNode*wordsize;
+					} else {
+						seekvalue = 0;
+					}
 				}
 				// does reading move the pointer I dont think so
 				//std::cout<<(seekvalue)<<" seek value \n";
+				MPI_Offset offset;
+				MPI_File_get_position(fh, &offset);
+				std::cout<<"offset before" << offset <<"\n";
 				MPI_File_seek(fh,seekvalue, MPI_SEEK_CUR);
-				MPI_File_read(fh, bufP, xPerNode, MPI_LONG_LONG, &status);
+				MPI_File_get_position(fh, &offset);
+				std::cout<<"offset after" << offset << "\n";
+				//std::cout<<"file handle" << fh <<"\n";
+				MPI_File_read(fh, bufP, xPerNode, MPI_DOUBLE, &status);
+				//std::cout<<"file "<< *bufP << "\n";
+				if (*bufP==0){
+					std::cout<<seekvalue<<"\n";
+					std::cout<<iterY<<"IterY\n";
+				}
 				bufP = bufP + xPerNode;
+				//std::cout<<"file handle" << *bufP << "\n";
 			}
-			seekvalue = 0;
+			std::cout<<"seekvalue at the end"<<seekvalue/8<<"\n";
+			seekvalue = -2;
 		}
 	}
+	std::cout<<"nints"<< nints<<"\n";
 	MPI_File_close(&fh);
 	
 	if (debug) {
