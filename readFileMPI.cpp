@@ -15,6 +15,7 @@ int main(int argc, char *argv[])
 {
 	// from the command line pass in a path to the file
 	//program name, file name (-f), dtype (-d), shape (-s) , word size (-w) 
+	double start = MPI_Wtime();
 	MPI_Init(&argc,&argv);
 	bool debug = true;
 	std::string filename = "";
@@ -83,8 +84,8 @@ int main(int argc, char *argv[])
 
 	// these would be input of the ways you wanted it split
 	// look up conditional setting to make this prettier
-	int ylines = 1;
-	int xlines = nprocs;
+	int ylines = 2;
+	int xlines = 2;
     int zlines = 1;
     int samplelines = 1;
     int xPerNode = x/xlines;
@@ -103,9 +104,9 @@ int main(int argc, char *argv[])
 			iterX = ((xPerNode+1)*rank);
 			xPerNode++; 
 		} else {
-			iterX = ((xPerNode+1)*(x%xPerNode))+(xPerNode*(rank-(x%xPerNode)));
+			iterX = ((xPerNode+1)*(x%xPerNode))+(xPerNode*(rank-(x%xPerNode))*(rank%2));
 		}
-		std::cout<<"iterX after \n" << iterX<< "\n";
+		//std::cout<<"iterX after \n" << iterX<< "\n";
 	}
 	// if things are in chunks ????????????????
 	if (ylines > 1) {
@@ -113,7 +114,7 @@ int main(int argc, char *argv[])
 			iterY = ((yPerNode+1)*rank);
 			yPerNode++;
 		} else {
-			iterY = ((yPerNode+1)*(y%yPerNode)) + (yPerNode*(rank-(y*yPerNode)));
+			iterY = ((yPerNode+1)*(y%yPerNode)) + (yPerNode*(rank-(y%yPerNode)));
 		}
 	}
 	if (zlines > 1) {
@@ -121,7 +122,7 @@ int main(int argc, char *argv[])
 			iterZ = (zPerNode+1)*rank;
 			zPerNode++;
 		} else {
-			iterZ = ((iterZ+1)*(z%zPerNode)) + (zPerNode*(rank-(z*zPerNode)));
+			iterZ = ((iterZ+1)*(z%zPerNode)) + (zPerNode*(rank-(z%zPerNode)));
 		}
 	}
 	if (samplelines > 1) {
@@ -129,11 +130,16 @@ int main(int argc, char *argv[])
 			iterS = ((sPerNode+1)*rank);
 			sPerNode++;
 		} else {
-			iterS = ((iterS+1)*(s%sPerNode)) + (sPerNode*(rank-(s*sPerNode)));
+			iterS = ((iterS+1)*(s%sPerNode)) + (sPerNode*(rank-(s%sPerNode)));
 		}
 	}
-	std::cout<<xPerNode <<"xPerNode \n";
-	std::cout<<"buf size " << (xPerNode*yPerNode*zPerNode*sPerNode)<<"\n";
+	std::cout<<iterX<<" iterX \n";
+	std::cout<<iterY<<"iterY \n";
+	std::cout<<xPerNode<<" xPerNode \n";
+	std::cout<<yPerNode<<" yPerNode \n";
+
+	//std::cout<<xPerNode <<"xPerNode \n";
+	//std::cout<<"buf size " << (xPerNode*yPerNode*zPerNode*sPerNode)<<"\n";
 	double  buf[(xPerNode*yPerNode*zPerNode*sPerNode)];
 	double *bufP = buf;
 	//TODO: should be set from header value to confirm 128 (as is most of the time)
@@ -142,7 +148,7 @@ int main(int argc, char *argv[])
 	int gotoS = (iterS+sPerNode);
 	int gotoZ = (iterZ+zPerNode);
 	int gotoY = (iterY+yPerNode);
-	std::cout<<gotoY<<" gotoY \n";
+	//std::cout<<gotoY<<" gotoY \n";
 	// what if y is split and it is all consecutive for x
 	for (; iterS < gotoS; iterS++) {
 		for (; iterZ < gotoZ; iterZ++) {
@@ -151,12 +157,11 @@ int main(int argc, char *argv[])
 				// is this correct for higher dimensions, what if I split S 
 				if (seekvalue == -1) {
 					seekvalue = (((iterS*x*y*z)+(iterZ*x*y)+(iterY*x)+iterX)*wordsize)+headerlen;
-					std::cout<<" without divide " << 128/8 << "\n";
-					std::cout<<"seek value very first " << seekvalue/8<<"\n";
-				} else if (seekvalue == 0) {
+					std::cout<<(seekvalue)/8<<" seek value \n";
+				} else if (seekvalue == -2) {
 					// when it is resetting, is this right?????
 					seekvalue = ((iterS*x*y*z)+(iterZ*x*y)+(iterY*x)+iterX)*wordsize;
-					std::cout<< "should be resetting " << seekvalue/8<<"\n";
+				//	std::cout<< "should be resetting " << seekvalue/8<<"\n";
 				} else {
 					if(xPerNode < x) {
 						seekvalue = xPerNode*wordsize;
@@ -168,26 +173,18 @@ int main(int argc, char *argv[])
 				//std::cout<<(seekvalue)<<" seek value \n";
 				MPI_Offset offset;
 				MPI_File_get_position(fh, &offset);
-				std::cout<<"offset before" << offset <<"\n";
+				//std::cout<<"offset before" << offset <<"\n";
 				MPI_File_seek(fh,seekvalue, MPI_SEEK_CUR);
 				MPI_File_get_position(fh, &offset);
-				std::cout<<"offset after" << offset << "\n";
-				//std::cout<<"file handle" << fh <<"\n";
+				//std::cout<<"offset after" << offset << "\n";
 				MPI_File_read(fh, bufP, xPerNode, MPI_DOUBLE, &status);
-				//std::cout<<"file "<< *bufP << "\n";
-				if (*bufP==0){
-					std::cout<<seekvalue<<"\n";
-					std::cout<<iterY<<"IterY\n";
-				}
 				bufP = bufP + xPerNode;
-				//std::cout<<"file handle" << *bufP << "\n";
 			}
-			std::cout<<"seekvalue at the end"<<seekvalue/8<<"\n";
 			seekvalue = -2;
 		}
 	}
-	std::cout<<"nints"<< nints<<"\n";
 	MPI_File_close(&fh);
+	double end = MPI_Wtime();
 	
 	if (debug) {
 		std::ofstream output;
@@ -205,5 +202,6 @@ int main(int argc, char *argv[])
 		output.close();
 	}
 	MPI_Finalize();
+	std::cout<< "The process took " << end - start << " seconds to run. \n";
 	return 0;
 }
