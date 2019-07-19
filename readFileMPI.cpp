@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
 	//program name, file name (-f), dtype (-d), shape (-s) , word size (-w) 
 	double start = MPI_Wtime();
 	MPI_Init(&argc,&argv);
-	bool debug = true;
+	bool debug = false;
 	std::string filename = "";
 	std::string dtype = "";
 	std::vector<int> shape;
@@ -84,8 +84,8 @@ int main(int argc, char *argv[])
 
 	// these would be input of the ways you wanted it split
 	// look up conditional setting to make this prettier
-	int ylines = 2;
-	int xlines = 2;
+	int ylines = nprocs;
+	int xlines = 1;
     int zlines = 1;
     int samplelines = 1;
     int xPerNode = x/xlines;
