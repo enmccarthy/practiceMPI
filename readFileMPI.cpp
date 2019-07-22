@@ -96,7 +96,8 @@ int main(int argc, char *argv[])
 	int iterZ = 0;
 	int iterX = 0;
 	int iterY = 0;
-	// can also check odd here and maybe add one to xPerNode??? 
+    // this is setting where the iter should start for the for loop
+    // as well as take care of the odd case theoretically
 	if (xlines > 1) {
 		// if an  odd number then add one to the ranks below
 		// the remainder
@@ -104,7 +105,8 @@ int main(int argc, char *argv[])
 			iterX = ((xPerNode+1)*rank);
 			xPerNode++; 
 		} else {
-			iterX = ((xPerNode+1)*(x%xPerNode))+(xPerNode*(rank-(x%xPerNode))*(rank%2));
+            // in the even case x%xPerNode is 0
+			iterX = ((xPerNode+1)*(x%xPerNode))+(xPerNode*((rank-(x%xPerNode))%xlines));
 		}
 		//std::cout<<"iterX after \n" << iterX<< "\n";
 	}
@@ -114,7 +116,7 @@ int main(int argc, char *argv[])
 			iterY = ((yPerNode+1)*rank);
 			yPerNode++;
 		} else {
-			iterY = ((yPerNode+1)*(y%yPerNode)) + (yPerNode*(rank-(y%yPerNode)));
+			iterY = ((yPerNode+1)*(y%yPerNode)) + (yPerNode*((rank-(y%yPerNode))%ylines));
 		}
 	}
 	if (zlines > 1) {
@@ -122,7 +124,7 @@ int main(int argc, char *argv[])
 			iterZ = (zPerNode+1)*rank;
 			zPerNode++;
 		} else {
-			iterZ = ((iterZ+1)*(z%zPerNode)) + (zPerNode*(rank-(z%zPerNode)));
+			iterZ = ((zPerNode+1)*(z%zPerNode)) + (zPerNode*((rank-(z%zPerNode))%zlines));
 		}
 	}
 	if (samplelines > 1) {
@@ -130,7 +132,7 @@ int main(int argc, char *argv[])
 			iterS = ((sPerNode+1)*rank);
 			sPerNode++;
 		} else {
-			iterS = ((iterS+1)*(s%sPerNode)) + (sPerNode*(rank-(s%sPerNode)));
+			iterS = ((sPerNode+1)*(s%sPerNode)) + (sPerNode*((rank-(s%sPerNode))%samplelines);
 		}
 	}
 	std::cout<<iterX<<" iterX \n";
@@ -150,36 +152,44 @@ int main(int argc, char *argv[])
 	int gotoY = (iterY+yPerNode);
 	//std::cout<<gotoY<<" gotoY \n";
 	// what if y is split and it is all consecutive for x
+    // TODO: rethink seek value
 	for (; iterS < gotoS; iterS++) {
 		for (; iterZ < gotoZ; iterZ++) {
-			for (; iterY < gotoY; iterY++) {
-				// change seek value to match
-				// is this correct for higher dimensions, what if I split S 
-				if (seekvalue == -1) {
-					seekvalue = (((iterS*x*y*z)+(iterZ*x*y)+(iterY*x)+iterX)*wordsize)+headerlen;
-					std::cout<<(seekvalue)/8<<" seek value \n";
-				} else if (seekvalue == -2) {
-					// when it is resetting, is this right?????
-					seekvalue = ((iterS*x*y*z)+(iterZ*x*y)+(iterY*x)+iterX)*wordsize;
-				//	std::cout<< "should be resetting " << seekvalue/8<<"\n";
-				} else {
-					if(xPerNode < x) {
-						seekvalue = xPerNode*wordsize;
-					} else {
-						seekvalue = 0;
-					}
-				}
-				// does reading move the pointer I dont think so
-				//std::cout<<(seekvalue)<<" seek value \n";
-				MPI_Offset offset;
-				MPI_File_get_position(fh, &offset);
-				//std::cout<<"offset before" << offset <<"\n";
-				MPI_File_seek(fh,seekvalue, MPI_SEEK_CUR);
-				MPI_File_get_position(fh, &offset);
-				//std::cout<<"offset after" << offset << "\n";
-				MPI_File_read(fh, bufP, xPerNode, MPI_DOUBLE, &status);
-				bufP = bufP + xPerNode;
-			}
+            if(xlines == 1) {
+                // this should just read in the chunk y * x
+                seekvalue = ;
+                MPI_File_seek(fh, seekvalue, MPI_SEEK_CUR);
+                MPI_File_read(fh, bufP, xPerNode*yPerNode, MPI_DOUBLE, &status);
+                bufP = bufP + (xPerNode*yPerNode);
+            } else {
+
+                for (; iterY < gotoY; iterY++) {
+				    // change seek value to match
+				    // is this correct for higher dimensions, what if I split S 
+				    if (seekvalue == -1) {
+					    seekvalue = (((iterS*x*y*z)+(iterZ*x*y)+(iterY*x)+iterX)*wordsize)+headerlen;
+					    std::cout<<(seekvalue)/8<<" seek value \n";
+				    } else if (seekvalue == -2) {
+					    // when it is resetting, is this right?????
+					    seekvalue = ((iterS*x*y*z)+(iterZ*x*y)+(iterY*x)+iterX)*wordsize;
+				    //	std::cout<< "should be resetting " << seekvalue/8<<"\n";
+				    } else {
+					    if(xPerNode < x) {
+						    seekvalue = xPerNode*wordsize;
+					    } else {
+						    seekvalue = 0;
+					    }
+				    }
+				    //std::cout<<(seekvalue)<<" seek value \n";
+				    MPI_Offset offset;
+				    MPI_File_get_position(fh, &offset);
+				    //std::cout<<"offset before" << offset <<"\n";
+				    MPI_File_seek(fh,seekvalue, MPI_SEEK_CUR);
+				    MPI_File_get_position(fh, &offset);
+				    //std::cout<<"offset after" << offset << "\n";
+				    MPI_File_read(fh, bufP, xPerNode, MPI_DOUBLE, &status);
+				    bufP = bufP + xPerNode;
+			    }
 			seekvalue = -2;
 		}
 	}
