@@ -21,6 +21,7 @@ int main(int argc, char *argv[])
 	std::string filename = "";
 	std::string dtype = "";
 	std::vector<int> shape;
+    std::string files[] = {"/p/gpfs1/emccarth/test0.npy","/p/gpfs1/emccarth/test1.npy","/p/gpfs1/emccarth/test2.npy","/p/gpfs1/emccarth/test3.npy","/p/gpfs1/emccarth/test4.npy","/p/gpfs1/emccarth/test5.npy","/p/gpfs1/emccarth/test6.npy","/p/gpfs1/emccarth/test7.npy","/p/gpfs1/emccarth/test8.npy","/p/gpfs1/emccarth/test9.npy", "/p/gpfs1/emccarth/test10.npy", "/p/gpfs1/emccarth/test11.npy"};
 	int wordsize;
 	for (int i =0; i <argc; i++) { 
 		if (strcmp(argv[i], "-s")==0) {
@@ -43,159 +44,153 @@ int main(int argc, char *argv[])
 			wordsize = std::stoi(argv[++i]); 
 		}
 	}
-	//if ((dtype == "") && (shape.size() == 0)) {
-		//TODO: parse header
-	//}
 	int bufsize;
 	int rank, nprocs;
+    int numsamples = 100;
 	MPI_File fh;
 	MPI_Status status;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
-	MPI_Offset FILESIZE;
-	MPI_File_open(MPI_COMM_WORLD, filename.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
-	MPI_File_get_size(fh, &FILESIZE);
-	// get total buf size
-	int tempbufsize = 1;
-	for (int shapeI = 0; shapeI < shape.size(); shapeI++) {
-		bufsize = tempbufsize*shape[shapeI];
-		tempbufsize = bufsize;
-	} 
-	bufsize = (tempbufsize)/nprocs;
-	int nints = bufsize;
+    for(int nux = 0; nux<(numsamples/(nprocs/2)); nux++) {
+        filename = files[((rank/2)+nux)%12];
+	    MPI_File_open(MPI_COMM_WORLD, filename.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+	    //MPI_File_get_size(fh, &FILESIZE);
+	    // get total buf size
+	    int tempbufsize = 1;
+	    for (int shapeI = 0; shapeI < shape.size(); shapeI++) {
+		    bufsize = tempbufsize*shape[shapeI];
+		    tempbufsize = bufsize;
+	    } 
+        //TODO change this hardcoded 2
+	    bufsize = (tempbufsize)/2;
+	    int nints = bufsize;
 	
-	//TODO: as input
-	int channels = 1;
-	int numSamples = 1; 
-	int x = shape[0];
-	int y = shape[1];
-	int z = 1;
-	int s = 1; // this might be channels
-	// in this case the samples are in different files
-	if (shape.size()==3) {
-		numSamples = shape[2];
-	} else if (shape.size() ==4) {
-		channels = shape[2];
-		numSamples = shape[3];
-	}
-    // default split only along the x but have ways to split across other dimensions
-    // first x%xPerNode partitions will have one extra
-    // the rest will have xPerNode amount
+	    //TODO: as input
+	    int x = shape[0];
+	    int y = shape[1];
+	    int z = shape[2];
+	    int s = shape[3]; // this might be channels
+        // default split only along the x but have ways to split across other dimensions
 
-	// these would be input of the ways you wanted it split
-	// look up conditional setting to make this prettier
-	int ylines = nprocs;
-	int xlines = 1;
-    int zlines = 1;
-    int samplelines = 1;
-    int xPerNode = x/xlines;
-	int yPerNode = y/ylines;
-	int zPerNode = z/zlines;
-	int sPerNode = s/samplelines;
-	int iterS = 0; 
-	int iterZ = 0;
-	int iterX = 0;
-	int iterY = 0;
-    // this is setting where the iter should start for the for loop
-    // as well as take care of the odd case theoretically
-	if (xlines > 1) {
-		// if an  odd number then add one to the ranks below
-		// the remainder
-		if(rank < (x%xPerNode)) {
-			iterX = ((xPerNode+1)*rank);
-			xPerNode++; 
-		} else {
-            // in the even case x%xPerNode is 0
-			iterX = ((xPerNode+1)*(x%xPerNode))+(xPerNode*((rank-(x%xPerNode))%xlines));
-		}
-		//std::cout<<"iterX after \n" << iterX<< "\n";
-	}
-	// if things are in chunks ????????????????
-	if (ylines > 1) {
-		if(rank < (y%yPerNode)) {
-			iterY = ((yPerNode+1)*rank);
-			yPerNode++;
-		} else {
-			iterY = ((yPerNode+1)*(y%yPerNode)) + (yPerNode*((rank-(y%yPerNode))%ylines));
-		}
-	}
-	if (zlines > 1) {
-		if(rank < (z%zPerNode)) {
-			iterZ = (zPerNode+1)*rank;
-			zPerNode++;
-		} else {
-			iterZ = ((zPerNode+1)*(z%zPerNode)) + (zPerNode*((rank-(z%zPerNode))%zlines));
-		}
-	}
-	if (samplelines > 1) {
-		if (rank < (s%sPerNode)) {
-			iterS = ((sPerNode+1)*rank);
-			sPerNode++;
-		} else {
-			iterS = ((sPerNode+1)*(s%sPerNode)) + (sPerNode*((rank-(s%sPerNode))%samplelines);
-		}
-	}
-	std::cout<<iterX<<" iterX \n";
-	std::cout<<iterY<<"iterY \n";
-	std::cout<<xPerNode<<" xPerNode \n";
-	std::cout<<yPerNode<<" yPerNode \n";
+	    // these would be input of the ways you wanted it split
+	    // look up conditional setting to make this prettier
+	    int ylines = 2;
+	    int xlines = 1;
+        int zlines = 1;
+        int samplelines = 1;
+        // per node per iter of the for loop
+        int xPerNode = x/xlines;
+	    int yPerNode = y/ylines;
+	    int zPerNode = z/zlines;
+	    int sPerNode = s/samplelines;
+	    int iterS = 0; 
+	    int iterZ = 0;
+	    int iterX = 0;
+	    int iterY = 0;
+        // this is setting where the iter should start for the for loop
+        // as well as take care of the odd case theoretically
+	    if (xlines > 1) {
+		    // if an  odd number then add one to the ranks below
+		    // the remainder
+		    if(rank < (x%xPerNode)) {
+			    iterX = ((xPerNode+1)*(rank%2));
+			    xPerNode++; 
+		    } else {
+                // in the even case x%xPerNode is 0
+			    iterX = ((xPerNode+1)*(x%xPerNode))+(xPerNode*(((rank%2)-(x%xPerNode))%xlines));
+		    }
+	    }
+	    // if things are in chunks ????????????????
+	    if (ylines > 1) {
+		    if((rank%2) < (y%yPerNode)) {
+			    iterY = ((yPerNode+1)*(rank%2));
+			    yPerNode++;
+		    } else {
+			    iterY = ((yPerNode+1)*(y%yPerNode)) + (yPerNode*(((rank%2)-(y%yPerNode))/xlines));
+	    	}   
+	    }
+	    if (zlines > 1) {
+		    if(rank < (z%zPerNode)) {
+			    iterZ = (zPerNode+1)*(rank%2);
+			    zPerNode++;
+		    } else {
+			    iterZ = ((zPerNode+1)*(z%zPerNode)) + (zPerNode*(((rank%2)-(z%zPerNode))%zlines));
+		    }
+	    }
+	    if (samplelines > 1) {
+		    if (rank < (s%sPerNode)) {
+			    iterS = ((sPerNode+1)*(rank%2));
+		    	sPerNode++;
+		    } else {
+			    iterS = ((sPerNode+1)*(s%sPerNode)) + 
+                    (sPerNode*(((rank%2)-(s%sPerNode))%samplelines));
+		    }
+	    }
+	    //std::cout<<iterX<<" iterX \n";
+	    //std::cout<<iterY<<"iterY \n";
+	    //std::cout<<xPerNode<<" xPerNode \n";
+	    //std::cout<<yPerNode<<" yPerNode \n";
 
-	//std::cout<<xPerNode <<"xPerNode \n";
-	//std::cout<<"buf size " << (xPerNode*yPerNode*zPerNode*sPerNode)<<"\n";
-	double  buf[(xPerNode*yPerNode*zPerNode*sPerNode)];
-	double *bufP = buf;
-	//TODO: should be set from header value to confirm 128 (as is most of the time)
-	int headerlen = 128;
-	int seekvalue = -1;
-	int gotoS = (iterS+sPerNode);
-	int gotoZ = (iterZ+zPerNode);
-	int gotoY = (iterY+yPerNode);
-	//std::cout<<gotoY<<" gotoY \n";
-	// what if y is split and it is all consecutive for x
-    // TODO: rethink seek value
-	for (; iterS < gotoS; iterS++) {
-		for (; iterZ < gotoZ; iterZ++) {
-            if(xlines == 1) {
+	    //std::cout<<xPerNode <<"xPerNode \n";
+	    //std::cout<<"buf size " << (xPerNode*yPerNode*zPerNode*sPerNode)<<"\n";
+	    short int  buf[(xPerNode*yPerNode*zPerNode*sPerNode)];
+	    short int *bufP = buf;
+        // std::cout<<(xPerNode*yPerNode*zPerNode*sPerNode)<<"\n";
+	    //TODO: should be set from header value to confirm 128 (as is most of the time)
+    	int headerlen = 128;
+	    int seekvalue = -1;
+	    int gotoS = (iterS+sPerNode);
+	    int gotoZ = (iterZ+zPerNode);
+	    int gotoY = (iterY+yPerNode);
+	    //std::cout<<gotoY<<" gotoY \n";
+	    // what if y is split and it is all consecutive for x
+        // TODO: rethink seek value
+	    for (; iterS < gotoS; iterS++) {
+		    for (; iterZ < gotoZ; iterZ++) {
+                if(xlines == 1) {
                 // this should just read in the chunk y * x
-                seekvalue = ;
-                MPI_File_seek(fh, seekvalue, MPI_SEEK_CUR);
-                MPI_File_read(fh, bufP, xPerNode*yPerNode, MPI_DOUBLE, &status);
-                bufP = bufP + (xPerNode*yPerNode);
-            } else {
-
-                for (; iterY < gotoY; iterY++) {
-				    // change seek value to match
-				    // is this correct for higher dimensions, what if I split S 
-				    if (seekvalue == -1) {
-					    seekvalue = (((iterS*x*y*z)+(iterZ*x*y)+(iterY*x)+iterX)*wordsize)+headerlen;
-					    std::cout<<(seekvalue)/8<<" seek value \n";
-				    } else if (seekvalue == -2) {
-					    // when it is resetting, is this right?????
-					    seekvalue = ((iterS*x*y*z)+(iterZ*x*y)+(iterY*x)+iterX)*wordsize;
-				    //	std::cout<< "should be resetting " << seekvalue/8<<"\n";
-				    } else {
-					    if(xPerNode < x) {
-						    seekvalue = xPerNode*wordsize;
-					    } else {
-						    seekvalue = 0;
-					    }
-				    }
-				    //std::cout<<(seekvalue)<<" seek value \n";
-				    MPI_Offset offset;
-				    MPI_File_get_position(fh, &offset);
-				    //std::cout<<"offset before" << offset <<"\n";
-				    MPI_File_seek(fh,seekvalue, MPI_SEEK_CUR);
-				    MPI_File_get_position(fh, &offset);
-				    //std::cout<<"offset after" << offset << "\n";
-				    MPI_File_read(fh, bufP, xPerNode, MPI_DOUBLE, &status);
-				    bufP = bufP + xPerNode;
-			    }
-			seekvalue = -2;
-		}
-	}
-	MPI_File_close(&fh);
+                    if (seekvalue == -1) {
+                        seekvalue = ((iterS*x*y*z) + (iterZ*x*y) + (iterY*x) + iterX)*wordsize+headerlen;
+                    } else {
+                        seekvalue = ((x*y)-(xPerNode*yPerNode))*wordsize;
+                    }
+                    MPI_File_seek(fh, seekvalue, MPI_SEEK_CUR);
+                    MPI_File_read(fh, bufP, xPerNode*yPerNode, MPI_SHORT, &status);
+                    bufP = bufP + (xPerNode*yPerNode);
+                } else {
+                    for (; iterY < gotoY; iterY++) {
+				        // change seek value to match
+				        // is this correct for higher dimensions, what if I split S 
+				        if (seekvalue == -1) {
+					        seekvalue = (((iterS*x*y*z)+(iterZ*x*y)+(iterY*x)+iterX)*wordsize)+headerlen;
+					    // std::cout<<(seekvalue)/8<<" seek value \n";
+				         } else {
+					        //seekvalue = ((iterS*x*y*z)+(iterZ*x*y)+(iterY*x)+iterX)*wordsize;
+					         if(xPerNode < x) {
+					            seekvalue = xPerNode*wordsize;
+					         } else {
+					             seekvalue = 0;
+					        }
+				        }
+				        //std::cout<<(seekvalue)<<" seek value \n";
+				        MPI_Offset offset;
+				        MPI_File_get_position(fh, &offset);
+				        //std::cout<<"offset before" << offset <<"\n";
+				        MPI_File_seek(fh,seekvalue, MPI_SEEK_CUR);
+				        MPI_File_get_position(fh, &offset);
+				        // std::cout<<"offset after" << offset << "\n";
+				        MPI_File_read(fh, bufP, xPerNode, MPI_SHORT_INT, &status);
+				        bufP = bufP + xPerNode;
+			        }
+		         }
+	         }
+        }
+        std::cout<<*(bufP-xPerNode)<<"final buf \n";
+	    MPI_File_close(&fh);
+    }
 	double end = MPI_Wtime();
-	
+    //std::cout<<*(bufP-xPerNode)<<"final buf \n";
+    //std::cout<<nints<<"nints \n";
 	if (debug) {
 		std::ofstream output;
 		std::string outname = "output";
@@ -206,8 +201,8 @@ int main(int argc, char *argv[])
 		outname.append(out);
 		outname.append(".txt");
 		output.open(outname.c_str());
-		for (int iter = 0; iter < nints; iter++) {
-			output << buf[iter] << " ";
+		for (int iter = 0; iter < 100; iter++) {
+	//		output << buf[iter] << " ";
 		}
 		output.close();
 	}
