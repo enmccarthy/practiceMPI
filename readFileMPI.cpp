@@ -169,6 +169,7 @@ int main(int argc, char *argv[])
                    // std::cout<<*bufP<<"\n";
                     bufP = bufP + (xPerNode*yPerNode);
                 } else {
+                    //FIX THIS FOR LOOP 
                     for (; iterY < gotoY; iterY++) {
 				        // change seek value to match
 				        // is this correct for higher dimensions, what if I split S 

@@ -6,12 +6,6 @@
 #include <cstring>
 #include <string>
 #include "hdf5.h"
-//read file using MPI
-// filename of input file
-// vector of ints which represent the shape of the datastructure (ex: (1,2,3), vector<int> vect{1,2,3})
-// 	did this to accomodate different shapes
-// dtype should be an int representing number of bytes of possibly MPI_data_type (*come back to this*)
-// debug, should it write out the values to check for acc or whatever debug is implemented
 int main(int argc, char *argv[]) 
 {
 	// from the command line pass in a path to the file
@@ -22,6 +16,7 @@ int main(int argc, char *argv[])
 	std::string filename = "";
 	std::string dtype = "";
 	std::vector<int> shape;
+    //TODO change these to hdf5
     std::string files[] = {"/p/gpfs1/emccarth/test0.npy","/p/gpfs1/emccarth/test1.npy","/p/gpfs1/emccarth/test2.npy","/p/gpfs1/emccarth/test3.npy","/p/gpfs1/emccarth/test4.npy","/p/gpfs1/emccarth/test5.npy","/p/gpfs1/emccarth/test6.npy","/p/gpfs1/emccarth/test7.npy","/p/gpfs1/emccarth/test8.npy","/p/gpfs1/emccarth/test9.npy", "/p/gpfs1/emccarth/test10.npy", "/p/gpfs1/emccarth/test11.npy"};
 	int wordsize;
 	for (int i =0; i <argc; i++) { 
@@ -38,34 +33,17 @@ int main(int argc, char *argv[])
 		} 
 		if (strcmp(argv[i], "-f")==0) {
 			filename = argv[++i];
-			//TODO: make sure it ends in .npy
 		} else if (strcmp(argv[i],"-d")==0) {
 			dtype = argv[++i]; 
 		} else if (strcmp(argv[i], "-w")==0) {
 			wordsize = std::stoi(argv[++i]); 
 		}
 	}
+
 	int bufsize;
 	int rank, nprocs;
     int numsamples = 1000;
-	hid_t file;
-    hid_t dataset;
-    hid_t filespace;
-    hid_t memspace;
-    hid_t cparms;
-    hsize_t dims[2];
-    hsize_t chunk_dims[2];
-    hsize_t col_dims[1];
-    hsize_t count[2];
-    hsize_t offset[2];
 
-    herr_t status, status_n; 
-    // TODO define dims
-	int data_out[dim1][dim2];
-    int chunk_out[2][5];
-    int column[10];
-    int rank_data, rank_chunk;
-    hsize_t i, j;
  
     MPI_Status status;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -73,6 +51,27 @@ int main(int argc, char *argv[])
    
     // int nux = 0;
    for(int nux = 0; nux<(numsamples/(nprocs/2)); nux++) {
+        // idk where this should be
+	    hid_t file;
+        hid_t dataset;
+        hid_t filespace;
+        hid_t memspace;
+        hid_t cparms;
+        //TODO change these to be the correct dimensions
+        hsize_t dims[2];
+        hsize_t chunk_dims[2];
+        hsize_t col_dims[1];
+        hsize_t count[2];
+        hsize_t offset[2];
+
+        herr_t status, status_n; 
+        // TODO define dims
+        // Should I keep all the dims like this 
+	    int data_out[dim1][dim2];
+        int chunk_out[2][5];
+        int column[10];
+        int rank_data, rank_chunk;
+        hsize_t i, j;
         filename = files[((rank/2)+nux)%12];
         // open the file and the dataset
         // TODO how to get the dataset name?
@@ -103,15 +102,6 @@ int main(int argc, char *argv[])
         // read dataset back and "display"
         status = H5Dread(dataset, H5T_NATIVE_INT, memspace, filespace, H5P_DEFAULT, data_out);
 
-        //TODO: I am going to need to do this and define the offset
-        offset[0] = 0;
-        offset[1] = 2;
-        count[0] = 10;
-        count[1] = 1;
-        satus =  H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, 
-                                        count, NULL);
-        status = H5Dread(dataset, H5T_NATIVE_INT, memspace, filespace, 
-                            H5P_DEFAULT, column);
 	    //MPI_File_open(MPI_COMM_WORLD, filename.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
 	    //MPI_File_get_size(fh, &FILESIZE);
 	    // get total buf size
@@ -185,6 +175,13 @@ int main(int argc, char *argv[])
                     (sPerNode*(((rank%2)-(s%sPerNode))%samplelines));
 		    }
 	    }
+        
+        //TODO: I am going to need to do this and define the offset
+        offset[0] = 0;
+        offset[1] = 2;
+        // I think this will be the pernode
+        count[0] = 10;
+        count[1] = 1;
 
 	    short int  buf[(xPerNode*yPerNode*zPerNode*sPerNode)];
 	    short int *bufP = buf;
@@ -198,6 +195,11 @@ int main(int argc, char *argv[])
 	    for (; iterS < gotoS; iterS++) {
             for (int niterZ = iterZ; niterZ < gotoZ; niterZ++) {
                 if(xlines == 1) {
+                    //TODO I dont need this if statement 
+                    status =  H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, 
+                                        count, NULL);
+                    status = H5Dread(dataset, H5T_NATIVE_INT, memspace, filespace, 
+                            H5P_DEFAULT, column);
                 // this should just read in the chunk y * x
                     if (seekvalue == -1) {
                         seekvalue = ((iterS*x*y*z) + (niterZ*x*y) + (iterY*x) + iterX)*wordsize;
