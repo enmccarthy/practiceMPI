@@ -1,0 +1,38 @@
+#!/bin/bash
+
+    ### LSF syntax
+    #BSUB -nnodes 25                  #number of nodes
+    #BSUB -W 5                        #walltime in minutes
+    #BSUB -e myerrors.txt             #stderr
+    #BSUB -o joboutput.%J             #stdout
+    #BSUB -J myjob                    #name of job
+    #BSUB -q pbatch                   #queue to use
+
+    ### Shell scripting
+    date; hostname
+    echo -n 'JobID is '; echo $LSB_JOBID
+    cd ~/distload/
+
+    ### Launch parallel executable
+    lrun -N25 -T4 ./ysplit -f /p/gpfs1 -s 512 512 512 4 -d 1 -w 2
+    lrun -N25 -T4 ./ysplit -f /p/gpfs1 -s 512 512 512 4 -d 1 -w 2
+    lrun -N25 -T4 ./ysplit -f /p/gpfs1 -s 512 512 512 4 -d 1 -w 2
+    echo -n '25 nodes done';
+    lrun -N20 -T4 ./ysplit -f /p/gpfs1 -s 512 512 512 4 -d 1 -w 2
+    lrun -N20 -T4 ./ysplit -f /p/gpfs1 -s 512 512 512 4 -d 1 -w 2
+    lrun -N20 -T4 ./ysplit -f /p/gpfs1 -s 512 512 512 4 -d 1 -w 2
+    echo -n '20 nodes done';
+    iostat -m -d 2 10 & 
+    lrun -N10 -T4 ./ysplit -f /p/gpfs1 -s 512 512 512 4 -d 1 -w 2
+    lrun -N10 -T4 ./ysplit -f /p/gpfs1 -s 512 512 512 4 -d 1 -w 2
+    lrun -N10 -T4 ./ysplit -f /p/gpfs1 -s 512 512 512 4 -d 1 -w 2
+    echo -n '10 nodes done';
+    lrun -N5 -T4 ./ysplit -f /p/gpfs1 -s 512 512 512 4 -d 1 -w 2
+    lrun -N5 -T4 ./ysplit -f /p/gpfs1 -s 512 512 512 4 -d 1 -w 2
+    lrun -N5 -T4 ./ysplit -f /p/gpfs1 -s 512 512 512 4 -d 1 -w 2
+    echo -n '5 nodes done';
+    lrun -N1 -T4 ./ysplit -f /p/gpfs1 -s 512 512 512 4 -d 1 -w 2
+    lrun -N1 -T4 ./ysplit -f /p/gpfs1 -s 512 512 512 4 -d 1 -w 2
+    lrun -N1 -T4 ./ysplit -f /p/gpfs1 -s 512 512 512 4 -d 1 -w 2
+    echo 'Done'
+

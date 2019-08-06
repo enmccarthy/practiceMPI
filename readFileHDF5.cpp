@@ -5,6 +5,7 @@
 #include <vector>
 #include <cstring>
 #include <string>
+#include "hdf5.h"
 //read file using MPI
 // filename of input file
 // vector of ints which represent the shape of the datastructure (ex: (1,2,3), vector<int> vect{1,2,3})
@@ -47,14 +48,71 @@ int main(int argc, char *argv[])
 	int bufsize;
 	int rank, nprocs;
     int numsamples = 1000;
-	MPI_File fh;
-	MPI_Status status;
+	hid_t file;
+    hid_t dataset;
+    hid_t filespace;
+    hid_t memspace;
+    hid_t cparms;
+    hsize_t dims[2];
+    hsize_t chunk_dims[2];
+    hsize_t col_dims[1];
+    hsize_t count[2];
+    hsize_t offset[2];
+
+    herr_t status, status_n; 
+    // TODO define dims
+	int data_out[dim1][dim2];
+    int chunk_out[2][5];
+    int column[10];
+    int rank_data, rank_chunk;
+    hsize_t i, j;
+ 
+    MPI_Status status;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
-   // int nux = 0;
+   
+    // int nux = 0;
    for(int nux = 0; nux<(numsamples/(nprocs/2)); nux++) {
         filename = files[((rank/2)+nux)%12];
-	    MPI_File_open(MPI_COMM_WORLD, filename.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+        // open the file and the dataset
+        // TODO how to get the dataset name?
+        file = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
+        dataset = H5Dopen(file, DATASETNAME);
+
+        // Get dataset ran and dimensions
+        // TODO ^ this will probably change the rest of the code
+        filespace = H5Dget_space(dataset);
+        rank_data = H5Sget_simple_extent_ndims(filespace);
+        status_n = H5Sget_simple_extent_dims(filespace, dims, NULL); 
+        printf("dataset rank %d, dimensions %lu x %lu\n", 
+                rank, (unsigned long) (dims[0]), (unsigned long) (dims[1]));
+
+        // properties list?????????
+        cparms = H5Dget_create_plist(dataset);
+
+        // check if dataset is chunked???? 
+        if(H5D_chunked == H5Pget_layout(cparms)) {
+            rank_chunk = H5Pget_chunk(cparms,2, chunk_dims);
+            printf("chunk rank %d, dimensions %lu x %lu\n", rank_chunk, 
+                    (unsigned long) (chunk_dims[0]), (unsigned long) (chunk_dims[1]));
+        }
+
+        // define memory space to read dataset???
+        memspace = H5Screate_simple(RANK, dims, NULL);
+
+        // read dataset back and "display"
+        status = H5Dread(dataset, H5T_NATIVE_INT, memspace, filespace, H5P_DEFAULT, data_out);
+
+        //TODO: I am going to need to do this and define the offset
+        offset[0] = 0;
+        offset[1] = 2;
+        count[0] = 10;
+        count[1] = 1;
+        satus =  H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, 
+                                        count, NULL);
+        status = H5Dread(dataset, H5T_NATIVE_INT, memspace, filespace, 
+                            H5P_DEFAULT, column);
+	    //MPI_File_open(MPI_COMM_WORLD, filename.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
 	    //MPI_File_get_size(fh, &FILESIZE);
 	    // get total buf size
 	    int tempbufsize = 1;
@@ -127,69 +185,43 @@ int main(int argc, char *argv[])
                     (sPerNode*(((rank%2)-(s%sPerNode))%samplelines));
 		    }
 	    }
-	    //std::cout<<iterX<<" iterX \n";
-	    //std::cout<<iterY<<"iterY \n";
-	    //std::cout<<xPerNode<<" xPerNode \n";
-	    //std::cout<<yPerNode<<" yPerNode \n";
 
-	    //std::cout<<xPerNode <<"xPerNode \n";
-	    //std::cout<<"buf size " << (xPerNode*yPerNode*zPerNode*sPerNode)<<"\n";
 	    short int  buf[(xPerNode*yPerNode*zPerNode*sPerNode)];
 	    short int *bufP = buf;
-        // std::cout<<(xPerNode*yPerNode*zPerNode*sPerNode)<<"\n";
-	    //TODO: should be set from header value to confirm 128 (as is most of the time)
-    	int headerlen = 128;
 	    int seekvalue = -1;
 	    int gotoS = (iterS+sPerNode);
 	    int gotoZ = (iterZ+zPerNode);
 	    int gotoY = (iterY+yPerNode);
-        //std::cout<<gotoS<<"gotoS \n";
-	    //std::cout<<gotoY<<" gotoY \n";
-        //std::cout<<gotoZ<<"gotoZ \n";
 	    // what if y is split and it is all consecutive for x
         // TODO: rethink seek value
+        // TODO: change the for loop
 	    for (; iterS < gotoS; iterS++) {
-           // std::cout<<iterS<<"\n";
-           // std::cout<<gotoS<<"\n";
             for (int niterZ = iterZ; niterZ < gotoZ; niterZ++) {
                 if(xlines == 1) {
                 // this should just read in the chunk y * x
                     if (seekvalue == -1) {
-                        seekvalue = ((iterS*x*y*z) + (niterZ*x*y) + (iterY*x) + iterX)*wordsize+headerlen;
+                        seekvalue = ((iterS*x*y*z) + (niterZ*x*y) + (iterY*x) + iterX)*wordsize;
                     } else {
                         seekvalue = ((x*y)-(xPerNode*yPerNode))*wordsize;
                     }
-                    //std::cout<<iterS<<"here\n";
-                    //std::cout<<iterZ<<"here1\n";
-                    //std::cout<<seekvalue<<"seekvalue div by 2 \n";
-                    //std::cout<<(xPerNode*yPerNode) <<"\n";
                     MPI_File_seek(fh, seekvalue, MPI_SEEK_CUR);
-                   // std::cout<<*bufP<<"\n";
                     MPI_File_read(fh, bufP, (xPerNode*yPerNode), MPI_SHORT, &status);
-                   // std::cout<<*bufP<<"\n";
                     bufP = bufP + (xPerNode*yPerNode);
                 } else {
                     for (; iterY < gotoY; iterY++) {
-				        // change seek value to match
-				        // is this correct for higher dimensions, what if I split S 
 				        if (seekvalue == -1) {
-					        seekvalue = (((iterS*x*y*z)+(iterZ*x*y)+(iterY*x)+iterX)*wordsize)+headerlen;
-					    // std::cout<<(seekvalue)/8<<" seek value \n";
+					        seekvalue = (((iterS*x*y*z)+(iterZ*x*y)+(iterY*x)+iterX)*wordsize);
 				         } else {
-					        //seekvalue = ((iterS*x*y*z)+(iterZ*x*y)+(iterY*x)+iterX)*wordsize;
 					         if(xPerNode < x) {
 					            seekvalue = xPerNode*wordsize;
 					         } else {
 					             seekvalue = 0;
 					        }
 				        }
-				        //std::cout<<(seekvalue)<<" seek value \n";
 				        MPI_Offset offset;
 				        MPI_File_get_position(fh, &offset);
-				        //std::cout<<"offset before" << offset <<"\n";
 				        MPI_File_seek(fh,seekvalue, MPI_SEEK_CUR);
 				        MPI_File_get_position(fh, &offset);
-				        // std::cout<<"offset after" << offset << "\n";
 				        MPI_File_read(fh, bufP, xPerNode, MPI_SHORT_INT, &status);
 				        bufP = bufP + xPerNode;
 			        }
