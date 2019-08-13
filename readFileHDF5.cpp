@@ -10,22 +10,47 @@ int main(int argc, char *argv[])
 {
 	// from the command line pass in a path to the file
 	//program name, file name (-f), dtype (-d), shape (-s) , word size (-w) 
-	double start = MPI_Wtime();
+	int RANK = 4;
+    std::cout<< "hello, its me \n";
+    double start = MPI_Wtime();
 	MPI_Init(&argc,&argv);
 	bool debug = true;
 	std::string filename = "";
 	std::string dtype = "";
 	std::vector<int> shape;
-    //TODO change these to hdf5
-    std::string files[] = {"/p/gpfs1/emccarth/test0.npy","/p/gpfs1/emccarth/test1.npy","/p/gpfs1/emccarth/test2.npy","/p/gpfs1/emccarth/test3.npy","/p/gpfs1/emccarth/test4.npy","/p/gpfs1/emccarth/test5.npy","/p/gpfs1/emccarth/test6.npy","/p/gpfs1/emccarth/test7.npy","/p/gpfs1/emccarth/test8.npy","/p/gpfs1/emccarth/test9.npy", "/p/gpfs1/emccarth/test10.npy", "/p/gpfs1/emccarth/test11.npy"};
+	//TODO change these to hdf5
+	std::string files[] = {"/p/gpfs1/emccarth/test0.h5","/p/gpfs1/emccarth/test1.h5","/p/gpfs1/emccarth/test2.h5",
+        "/p/gpfs1/emccarth/test3.h5","/p/gpfs1/emccarth/test4.h5",
+        "/p/gpfs1/emccarth/test5.h5","/p/gpfs1/emccarth/test6.h5",
+        "/p/gpfs1/emccarth/test7.h5","/p/gpfs1/emccarth/test8.h5",
+        "/p/gpfs1/emccarth/test9.h5","/p/gpfs1/emccarth/test10.h5",
+        "/p/gpfs1/emccarth/test11.h5","/p/gpfs1/emccarth/test12.h5",
+        "/p/gpfs1/emccarth/test13.h5","/p/gpfs1/emccarth/test14.h5",
+        "/p/gpfs1/emccarth/test15.h5","/p/gpfs1/emccarth/test16.h5",
+        "/p/gpfs1/emccarth/test17.h5","/p/gpfs1/emccarth/test18.h5",
+        "/p/gpfs1/emccarth/test19.h5","/p/gpfs1/emccarth/test20.h5",
+        "/p/gpfs1/emccarth/test21.h5","/p/gpfs1/emccarth/test22.h5",
+        "/p/gpfs1/emccarth/test23.h5","/p/gpfs1/emccarth/test24.h5",
+        "/p/gpfs1/emccarth/test25.h5","/p/gpfs1/emccarth/test26.h5",
+        "/p/gpfs1/emccarth/test27.h5","/p/gpfs1/emccarth/test28.h5",
+        "/p/gpfs1/emccarth/test29.h5","/p/gpfs1/emccarth/test30.h5",
+        "/p/gpfs1/emccarth/test31.h5","/p/gpfs1/emccarth/test32.h5",
+        "/p/gpfs1/emccarth/test33.h5","/p/gpfs1/emccarth/test34.h5",
+        "/p/gpfs1/emccarth/test35.h5","/p/gpfs1/emccarth/test36.h5",
+        "/p/gpfs1/emccarth/test37.h5","/p/gpfs1/emccarth/test38.h5",
+        "/p/gpfs1/emccarth/test39.h5","/p/gpfs1/emccarth/test40.h5",
+        "/p/gpfs1/emccarth/test41.h5","/p/gpfs1/emccarth/test42.h5",
+        "/p/gpfs1/emccarth/test43.h5","/p/gpfs1/emccarth/test44.h5",
+        "/p/gpfs1/emccarth/test45.h5","/p/gpfs1/emccarth/test46.h5",
+        "/p/gpfs1/emccarth/test47.h5","/p/gpfs1/emccarth/test48.h5",
+        "/p/gpfs1/emccarth/test49.h5"};
 	int wordsize;
 	for (int i =0; i <argc; i++) { 
 		if (strcmp(argv[i], "-s")==0) {
 			i++;
-			while((i < argc) 
-					&& !(strcmp(argv[i], "-f")==0) 
-					&& !(strcmp(argv[i], "-d")==0)
-					&& !(strcmp(argv[i], "-w")==0)) {
+			while((i < argc) && !(strcmp(argv[i], "-f")==0) 
+				  && !(strcmp(argv[i], "-d")==0)
+				  && !(strcmp(argv[i], "-w")==0)) {
 				std::string str = argv[i];
 				shape.push_back(std::stoi(str));
 				i++;
@@ -39,206 +64,181 @@ int main(int argc, char *argv[])
 			wordsize = std::stoi(argv[++i]); 
 		}
 	}
-
 	int bufsize;
 	int rank, nprocs;
-    int numsamples = 1000;
-
+	int numsamples = 2;
  
-    MPI_Status status;
+	MPI_Status status1;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
-   
-    // int nux = 0;
-   for(int nux = 0; nux<(numsamples/(nprocs/2)); nux++) {
-        // idk where this should be
-	    hid_t file;
+	MPI_Comm_size(MPI_COMM_WORLD, &nprocs); 
+    MPI_Info mpi_info;
+    MPI_Info_create(&mpi_info);
+
+	//int nux = 0;
+    std::cout<< "nprocs" << nprocs <<"\n";
+    std::cout<< " " << (numsamples/(nprocs/2)) << "\n";
+    for(int nux = 0; nux<(numsamples/(nprocs/2)); nux++) {
+    //for(int nux = 0; nux < 1; nux++) {	
+    // idk where this should be
+		hid_t file;
         hid_t dataset;
         hid_t filespace;
         hid_t memspace;
         hid_t cparms;
-        //TODO change these to be the correct dimensions
-        hsize_t dims[2];
-        hsize_t chunk_dims[2];
-        hsize_t col_dims[1];
-        hsize_t count[2];
-        hsize_t offset[2];
-
-        herr_t status, status_n; 
-        // TODO define dims
-        // Should I keep all the dims like this 
-	    int data_out[dim1][dim2];
-        int chunk_out[2][5];
-        int column[10];
-        int rank_data, rank_chunk;
-        hsize_t i, j;
-        filename = files[((rank/2)+nux)%12];
+        //TODO changese to be the correct dimensions
+        //TODO HEREHERHERHEREHEREHERE 
+        //does it want MPI_COMM_WORLD, MPI_COMM_SELF???? 
+        //idk what H5Pcreate does, read about it
+        
+        hid_t fapl_id = H5Pcreate(H5P_FILE_ACCESS);
+        H5Pset_fapl_mpio(fapl_id, MPI_COMM_WORLD,mpi_info)
+        herr_t status, status_n;  
+		filename = files[((rank/2)+nux)%2];
         // open the file and the dataset
         // TODO how to get the dataset name?
+        std::cout<<"file name " << filename.c_str() <<"\n";
         file = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
-        dataset = H5Dopen(file, DATASETNAME);
-
+		hsize_t num_obj;
+		char name[100];
+		H5Gget_num_objs(file, &num_obj);
+        if(num_obj ==1) {
+            //std::cout<< "here \n";
+		    H5Gget_objname_by_idx(file, 0,name, 10000);
+		}
+	    hid_t dapl_id;	
+        dataset = H5Dopen(file, name);
+        int rank_data;
         // Get dataset ran and dimensions
         // TODO ^ this will probably change the rest of the code
+        
         filespace = H5Dget_space(dataset);
         rank_data = H5Sget_simple_extent_ndims(filespace);
-        status_n = H5Sget_simple_extent_dims(filespace, dims, NULL); 
-        printf("dataset rank %d, dimensions %lu x %lu\n", 
-                rank, (unsigned long) (dims[0]), (unsigned long) (dims[1]));
-
-        // properties list?????????
+		
+        // properties list????????
+        //std::cout<<"properties list \n";
+        //std::cout<<"rank data " << rank_data << "\n";
         cparms = H5Dget_create_plist(dataset);
 
-        // check if dataset is chunked???? 
-        if(H5D_chunked == H5Pget_layout(cparms)) {
-            rank_chunk = H5Pget_chunk(cparms,2, chunk_dims);
-            printf("chunk rank %d, dimensions %lu x %lu\n", rank_chunk, 
-                    (unsigned long) (chunk_dims[0]), (unsigned long) (chunk_dims[1]));
-        }
-
-        // define memory space to read dataset???
-        memspace = H5Screate_simple(RANK, dims, NULL);
-
-        // read dataset back and "display"
-        status = H5Dread(dataset, H5T_NATIVE_INT, memspace, filespace, H5P_DEFAULT, data_out);
-
-	    //MPI_File_open(MPI_COMM_WORLD, filename.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
-	    //MPI_File_get_size(fh, &FILESIZE);
-	    // get total buf size
-	    int tempbufsize = 1;
-	    for (int shapeI = 0; shapeI < shape.size(); shapeI++) {
-		    bufsize = tempbufsize*shape[shapeI];
-		    tempbufsize = bufsize;
-	    } 
-        //TODO change this hardcoded 2
-	    bufsize = (tempbufsize)/2;
-	    int nints = bufsize;
-	
-	    //TODO: as input
-	    int x = shape[0];
-	    int y = shape[1];
-	    int z = shape[2];
-	    int s = shape[3]; // this might be channels
-        // default split only along the x but have ways to split across other dimensions
-
-	    // these would be input of the ways you wanted it split
-	    // look up conditional setting to make this prettier
-	    int ylines = 2;
-	    int xlines = 1;
+		// get total buf size
+		hsize_t dims[shape.size()];
+        hsize_t count[shape.size()];
+        hsize_t offset[shape.size()];
+		// unsure if I need this
+        int rank_chunk;
+        hsize_t i, j;
+		
+		int x = shape[0];
+		int y = shape[1];
+		int z = shape[2];
+		int s = shape[3]; 
+    
+		int ylines = 2;
+		int xlines = 1;
         int zlines = 1;
         int samplelines = 1;
         // per node per iter of the for loop
-        int xPerNode = x/xlines;
-	    int yPerNode = y/ylines;
-	    int zPerNode = z/zlines;
-	    int sPerNode = s/samplelines;
-	    int iterS = 0; 
-	    int iterZ = 0;
-	    int iterX = 0;
-	    int iterY = 0;
+        
+		int xPerNode = x/xlines;
+		int yPerNode = y/ylines;
+		int zPerNode = z/zlines;
+		int sPerNode = s/samplelines;
+        
+        double data_out[yPerNode*xPerNode*zPerNode*sPerNode];
+		status_n = H5Sget_simple_extent_dims(filespace, dims, NULL); 	
+        
+        std::cout<<" dims " << dims[0] << " " << dims[1] << " " << dims[2] << " "  <<dims[3] << "\n";
+        // define memory space to read dataset???
+        // idk what RANK should be
+        dims[0] = dims[0]/2;
+		memspace = H5Screate_simple(RANK, dims, NULL);
+        //std::cout<<" memspace " << memspace << "\n";
+		
+        // read dataset back and "display"
+        // status = H5Dread(dataset, H5T_NATIVE_INT, memspace, filespace, H5P_DEFAULT, data_out);
         // this is setting where the iter should start for the for loop
         // as well as take care of the odd case theoretically
-	    if (xlines > 1) {
-		    // if an  odd number then add one to the ranks below
-		    // the remainder
-		    if(rank < (x%xPerNode)) {
-			    iterX = ((xPerNode+1)*(rank%2));
-			    xPerNode++; 
-		    } else {
+		if (xlines > 1) {
+			// if an  odd number then add one to the ranks below
+			// the remainder
+			if(rank < (x%xPerNode)) {
+				offset[0] = ((xPerNode+1)*(rank%2));
+				xPerNode++; 
+			} else {
                 // in the even case x%xPerNode is 0
-			    iterX = ((xPerNode+1)*(x%xPerNode))+(xPerNode*(((rank%2)-(x%xPerNode))%xlines));
-		    }
-	    }
-	    // if things are in chunks ????????????????
-	    if (ylines > 1) {
-		    if((rank%2) < (y%yPerNode)) {
-			    iterY = ((yPerNode+1)*(rank%2));
-			    yPerNode++;
-		    } else {
-			    iterY = ((yPerNode+1)*(y%yPerNode)) + (yPerNode*(((rank%2)-(y%yPerNode))/xlines));
-	    	}   
-	    }
-	    if (zlines > 1) {
-		    if(rank < (z%zPerNode)) {
-			    iterZ = (zPerNode+1)*(rank%2);
-			    zPerNode++;
-		    } else {
-			    iterZ = ((zPerNode+1)*(z%zPerNode)) + (zPerNode*(((rank%2)-(z%zPerNode))%zlines));
-		    }
-	    }
-	    if (samplelines > 1) {
-		    if (rank < (s%sPerNode)) {
-			    iterS = ((sPerNode+1)*(rank%2));
-		    	sPerNode++;
-		    } else {
-			    iterS = ((sPerNode+1)*(s%sPerNode)) + 
-                    (sPerNode*(((rank%2)-(s%sPerNode))%samplelines));
-		    }
-	    }
-        
-        //TODO: I am going to need to do this and define the offset
-        offset[0] = 0;
-        offset[1] = 2;
-        // I think this will be the pernode
-        count[0] = 10;
-        count[1] = 1;
-
-	    short int  buf[(xPerNode*yPerNode*zPerNode*sPerNode)];
-	    short int *bufP = buf;
-	    int seekvalue = -1;
-	    int gotoS = (iterS+sPerNode);
-	    int gotoZ = (iterZ+zPerNode);
-	    int gotoY = (iterY+yPerNode);
-	    // what if y is split and it is all consecutive for x
-        // TODO: rethink seek value
-        // TODO: change the for loop
-	    for (; iterS < gotoS; iterS++) {
-            for (int niterZ = iterZ; niterZ < gotoZ; niterZ++) {
-                if(xlines == 1) {
-                    //TODO I dont need this if statement 
-                    status =  H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, 
-                                        count, NULL);
-                    status = H5Dread(dataset, H5T_NATIVE_INT, memspace, filespace, 
-                            H5P_DEFAULT, column);
-                // this should just read in the chunk y * x
-                    if (seekvalue == -1) {
-                        seekvalue = ((iterS*x*y*z) + (niterZ*x*y) + (iterY*x) + iterX)*wordsize;
-                    } else {
-                        seekvalue = ((x*y)-(xPerNode*yPerNode))*wordsize;
-                    }
-                    MPI_File_seek(fh, seekvalue, MPI_SEEK_CUR);
-                    MPI_File_read(fh, bufP, (xPerNode*yPerNode), MPI_SHORT, &status);
-                    bufP = bufP + (xPerNode*yPerNode);
-                } else {
-                    for (; iterY < gotoY; iterY++) {
-				        if (seekvalue == -1) {
-					        seekvalue = (((iterS*x*y*z)+(iterZ*x*y)+(iterY*x)+iterX)*wordsize);
-				         } else {
-					         if(xPerNode < x) {
-					            seekvalue = xPerNode*wordsize;
-					         } else {
-					             seekvalue = 0;
-					        }
-				        }
-				        MPI_Offset offset;
-				        MPI_File_get_position(fh, &offset);
-				        MPI_File_seek(fh,seekvalue, MPI_SEEK_CUR);
-				        MPI_File_get_position(fh, &offset);
-				        MPI_File_read(fh, bufP, xPerNode, MPI_SHORT_INT, &status);
-				        bufP = bufP + xPerNode;
-			        }
-		         }
-	         }
+				offset[0] = ((xPerNode+1)*(x%xPerNode))+(xPerNode*(((rank%2)-(x%xPerNode))%xlines));
+			}
+		} else {
+            offset[1] = 0;
         }
-        int lp = *(bufP-xPerNode);
-       // for(int i =0; i<10;i++) {
-         //   std::cout<<*(bufP-i)<<"final buf \n";
-       // }
-	    MPI_File_close(&fh);
-   }
+		// if things are in chunks ??????
+		if (ylines > 1) {
+			if((rank%2) < (y%yPerNode)) {
+				offset[0] = ((yPerNode+1)*(rank%2));
+				yPerNode++;
+			} else {
+				offset[0] = ((yPerNode+1)*(y%yPerNode)) + (yPerNode*(((rank%2)-(y%yPerNode))/xlines));
+			}   
+		} else {
+            offset[0] = 0;
+        }
+		if (zlines > 1) {
+			if(rank < (z%zPerNode)) {
+				offset[2] = (zPerNode+1)*(rank%2);
+				zPerNode++;
+			} else {
+				offset[2] = ((zPerNode+1)*(z%zPerNode)) + (zPerNode*(((rank%2)-(z%zPerNode))%zlines));
+			}
+		} else {
+            offset[2] = 0;
+        }
+		if (samplelines > 1) {
+			if (rank < (s%sPerNode)) {
+				offset[3] = ((sPerNode+1)*(rank%2));
+				sPerNode++;
+			} else {
+				offset[3] = ((sPerNode+1)*(s%sPerNode)) + 
+                    (sPerNode*(((rank%2)-(s%sPerNode))%samplelines));
+			}
+		} else {
+            offset[3] = 0; 
+        }
+        
+        // I dont think count is correct
+        hsize_t block[4];
+        block[0] = yPerNode;
+        block[1] = xPerNode;
+		block[2] = zPerNode;
+		block[3] = sPerNode;
+        
+	    count[0] = 1;
+        count[1] = 1;
+        count[2] = 1;
+        count[3] = 1;     
+        //maybe change this data type
+		double  buf[(xPerNode*yPerNode*zPerNode*sPerNode)];
+		// change this pointer
+		double *bufP = buf;
+		int seekvalue = -1;
+		// start -> a starting location for the hyperslab
+        // stride -> the number of elements to separate each element or block to be selected
+        // count -> the number of elemenets or blocks to select along each dimension
+        // block -> the size of the block selected from the dataspace 
+
+        // what if y is split and it is all consecutive for x
+        int stride[4];
+        //I think stride can be null
+        std::cout<< "offset " << offset[0] <<" "<< offset[1] << " "<< offset [2] << " " << offset[3] <<"\n";
+        std::cout<< "block " << block[0] <<" "<< block[1] << " "<< block[2] << " " << block[3] <<"\n";
+        status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, 
+									  count, block);
+        std::cout<<status<< " status\n";
+        status = H5Dread(dataset, H5T_NATIVE_DOUBLE, memspace, filespace, 
+						 H5P_DEFAULT, data_out);
+        //std::cout<<"buf "<< buf[0]<<"\n";
+        H5Dclose(dataset);
+        H5Fclose(file);
+	}
 	double end = MPI_Wtime();
-    //std::cout<<*(bufP-xPerNode)<<"final buf \n";
-    //std::cout<<nints<<"nints \n";
 	if (false) {
 		std::ofstream output;
 		std::string outname = "output";
@@ -249,13 +249,13 @@ int main(int argc, char *argv[])
 		outname.append(out);
 		outname.append(".txt");
 		output.open(outname.c_str());
-        //std::cout<<(xPerNode*yPerNode*zPerNode*sPerNode) << "\n";
+    //    std::cout<<(xPerNode*yPerNode*zPerNode*sPerNode) << "\n";
 		//for (int iter = 0; iter < (xPerNode*yPerNode*zPerNode*sPerNode); iter++) {
-		  //  output << buf[iter] << " ";
+		 // output << data_out[iter] << " ";
 		//}
 		output.close();
 	}
 	MPI_Finalize();
 	std::cout<< "The process took " << end - start << " seconds to run. \n";
-	return 0;
-}
+	return 0;}
+
