@@ -1,3 +1,5 @@
+#ifndef READHDF5_CPP
+#define READHDF5_CPP
 #include <iostream> 
 #include "mpi.h" 
 #include <fstream> 
@@ -5,16 +7,21 @@
 #include <vector>
 #include <cstring>
 #include <string>
+//read file using MPI
 #include "hdf5.h"
+#ifdef H5_HAVE_PARALLEL
+#warning yes
+#else
+#warning no
+#endif
 int main(int argc, char *argv[]) 
 {
-	// from the command line pass in a path to the file
+    // from the command line pass in a path to the file
 	//program name, file name (-f), dtype (-d), shape (-s) , word size (-w) 
-	int RANK = 4;
-    std::cout<< "hello, its me \n";
+	//TODO: replace this I might be able to get it from the metadata
+    int RANK = 4;
     double start = MPI_Wtime();
 	MPI_Init(&argc,&argv);
-	bool debug = true;
 	std::string filename = "";
 	std::string dtype = "";
 	std::vector<int> shape;
@@ -66,14 +73,12 @@ int main(int argc, char *argv[])
 	}
 	int bufsize;
 	int rank, nprocs;
-	int numsamples = 2;
- 
+	int numsamples = 100; 
 	MPI_Status status1;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &nprocs); 
-    MPI_Info mpi_info;
-    MPI_Info_create(&mpi_info);
-
+    MPI_Info mpi_info = MPI_INFO_NULL;
+    MPI_Comm com = MPI_COMM_WORLD;
 	//int nux = 0;
     std::cout<< "nprocs" << nprocs <<"\n";
     std::cout<< " " << (numsamples/(nprocs/2)) << "\n";
@@ -89,24 +94,26 @@ int main(int argc, char *argv[])
         //TODO HEREHERHERHEREHEREHERE 
         //does it want MPI_COMM_WORLD, MPI_COMM_SELF???? 
         //idk what H5Pcreate does, read about it
-        
+        MPI_Comm file_com;
+        MPI_Comm_split(MPI_COMM_WORLD, (((rank/2)+nux)%200), rank, &file_com);        
         hid_t fapl_id = H5Pcreate(H5P_FILE_ACCESS);
-        H5Pset_fapl_mpio(fapl_id, MPI_COMM_WORLD,mpi_info)
+        H5Pset_fapl_mpio(fapl_id, file_com, mpi_info);
         herr_t status, status_n;  
-		filename = files[((rank/2)+nux)%2];
+		filename = files[((rank/2)+nux)%20];
         // open the file and the dataset
         // TODO how to get the dataset name?
-        std::cout<<"file name " << filename.c_str() <<"\n";
+        //std::cout<<"file name " << filename.c_str() <<"\n";
         file = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
 		hsize_t num_obj;
 		char name[100];
 		H5Gget_num_objs(file, &num_obj);
         if(num_obj ==1) {
             //std::cout<< "here \n";
-		    H5Gget_objname_by_idx(file, 0,name, 10000);
+		    H5Gget_objname_by_idx(file, 0,name, 100);
 		}
+  
 	    hid_t dapl_id;	
-        dataset = H5Dopen(file, name);
+        dataset = H5Dopen(file, name, H5P_DEFAULT);
         int rank_data;
         // Get dataset ran and dimensions
         // TODO ^ this will probably change the rest of the code
@@ -146,10 +153,10 @@ int main(int argc, char *argv[])
         double data_out[yPerNode*xPerNode*zPerNode*sPerNode];
 		status_n = H5Sget_simple_extent_dims(filespace, dims, NULL); 	
         
-        std::cout<<" dims " << dims[0] << " " << dims[1] << " " << dims[2] << " "  <<dims[3] << "\n";
+        //std::cout<<" dims " << dims[0] << " " << dims[1] << " " << dims[2] << " "  <<dims[3] << "\n";
         // define memory space to read dataset???
         // idk what RANK should be
-        dims[0] = dims[0]/2;
+        dims[2] = dims[2]/2;
 		memspace = H5Screate_simple(RANK, dims, NULL);
         //std::cout<<" memspace " << memspace << "\n";
 		
@@ -161,25 +168,25 @@ int main(int argc, char *argv[])
 			// if an  odd number then add one to the ranks below
 			// the remainder
 			if(rank < (x%xPerNode)) {
-				offset[0] = ((xPerNode+1)*(rank%2));
+				offset[3] = ((xPerNode+1)*(rank%2));
 				xPerNode++; 
 			} else {
                 // in the even case x%xPerNode is 0
-				offset[0] = ((xPerNode+1)*(x%xPerNode))+(xPerNode*(((rank%2)-(x%xPerNode))%xlines));
+				offset[3] = ((xPerNode+1)*(x%xPerNode))+(xPerNode*(((rank%2)-(x%xPerNode))%xlines));
 			}
 		} else {
-            offset[1] = 0;
+            offset[3] = 0;
         }
 		// if things are in chunks ??????
 		if (ylines > 1) {
 			if((rank%2) < (y%yPerNode)) {
-				offset[0] = ((yPerNode+1)*(rank%2));
+				offset[1] = ((yPerNode+1)*(rank%2));
 				yPerNode++;
 			} else {
-				offset[0] = ((yPerNode+1)*(y%yPerNode)) + (yPerNode*(((rank%2)-(y%yPerNode))/xlines));
+				offset[1] = ((yPerNode+1)*(y%yPerNode)) + (yPerNode*(((rank%2)-(y%yPerNode))/xlines));
 			}   
 		} else {
-            offset[0] = 0;
+            offset[1] = 0;
         }
 		if (zlines > 1) {
 			if(rank < (z%zPerNode)) {
@@ -193,22 +200,23 @@ int main(int argc, char *argv[])
         }
 		if (samplelines > 1) {
 			if (rank < (s%sPerNode)) {
-				offset[3] = ((sPerNode+1)*(rank%2));
+				offset[0] = ((sPerNode+1)*(rank%2));
 				sPerNode++;
 			} else {
-				offset[3] = ((sPerNode+1)*(s%sPerNode)) + 
+				offset[0] = ((sPerNode+1)*(s%sPerNode)) + 
                     (sPerNode*(((rank%2)-(s%sPerNode))%samplelines));
 			}
 		} else {
-            offset[3] = 0; 
+            offset[0] = 0; 
         }
         
         // I dont think count is correct
+        //std::cout<<yPerNode<<" yPerNode " << xPerNode << " xPerNode \n";
         hsize_t block[4];
-        block[0] = yPerNode;
-        block[1] = xPerNode;
+        block[0] = sPerNode;
+        block[1] = yPerNode;
 		block[2] = zPerNode;
-		block[3] = sPerNode;
+		block[3] = xPerNode;
         
 	    count[0] = 1;
         count[1] = 1;
@@ -227,14 +235,15 @@ int main(int argc, char *argv[])
         // what if y is split and it is all consecutive for x
         int stride[4];
         //I think stride can be null
-        std::cout<< "offset " << offset[0] <<" "<< offset[1] << " "<< offset [2] << " " << offset[3] <<"\n";
-        std::cout<< "block " << block[0] <<" "<< block[1] << " "<< block[2] << " " << block[3] <<"\n";
+        //std::cout<< "offset " << offset[0] <<" "<< offset[1] << " "<< offset [2] << " " << offset[3] <<"\n";
+        //std::cout<< "block " << block[0] <<" "<< block[1] << " "<< block[2] << " " << block[3] <<"\n";
         status = H5Sselect_hyperslab(filespace, H5S_SELECT_SET, offset, NULL, 
 									  count, block);
-        std::cout<<status<< " status\n";
-        status = H5Dread(dataset, H5T_NATIVE_DOUBLE, memspace, filespace, 
+        //std::cout<<status<< " status\n";
+        status = H5Dread(dataset, H5T_NATIVE_SHORT, memspace, filespace, 
 						 H5P_DEFAULT, data_out);
         //std::cout<<"buf "<< buf[0]<<"\n";
+        MPI_Comm_free(&file_com);
         H5Dclose(dataset);
         H5Fclose(file);
 	}
@@ -258,4 +267,4 @@ int main(int argc, char *argv[])
 	MPI_Finalize();
 	std::cout<< "The process took " << end - start << " seconds to run. \n";
 	return 0;}
-
+#endif
