@@ -23,8 +23,6 @@ int main(int argc, char *argv[])
     double start = MPI_Wtime();
 	MPI_Init(&argc,&argv);
 	std::string filename = "";
-	std::string dtype = "";
-	std::vector<int> shape;
 	//TODO change these to hdf5
 	std::string files[] = {"/p/gpfs1/emccarth/test0.h5","/p/gpfs1/emccarth/test1.h5","/p/gpfs1/emccarth/test2.h5",
         "/p/gpfs1/emccarth/test3.h5","/p/gpfs1/emccarth/test4.h5",
@@ -51,89 +49,53 @@ int main(int argc, char *argv[])
         "/p/gpfs1/emccarth/test45.h5","/p/gpfs1/emccarth/test46.h5",
         "/p/gpfs1/emccarth/test47.h5","/p/gpfs1/emccarth/test48.h5",
         "/p/gpfs1/emccarth/test49.h5"};
-	int wordsize;
-	for (int i =0; i <argc; i++) { 
-		if (strcmp(argv[i], "-s")==0) {
-			i++;
-			while((i < argc) && !(strcmp(argv[i], "-f")==0) 
-				  && !(strcmp(argv[i], "-d")==0)
-				  && !(strcmp(argv[i], "-w")==0)) {
-				std::string str = argv[i];
-				shape.push_back(std::stoi(str));
-				i++;
-			} 
-		} 
-		if (strcmp(argv[i], "-f")==0) {
-			filename = argv[++i];
-		} else if (strcmp(argv[i],"-d")==0) {
-			dtype = argv[++i]; 
-		} else if (strcmp(argv[i], "-w")==0) {
-			wordsize = std::stoi(argv[++i]); 
-		}
-	}
-	int bufsize;
 	int rank, nprocs;
 	int numsamples = 100; 
-	MPI_Status status1;
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &nprocs); 
     MPI_Info mpi_info = MPI_INFO_NULL;
-    MPI_Comm com = MPI_COMM_WORLD;
 	//int nux = 0;
     std::cout<< "nprocs" << nprocs <<"\n";
     std::cout<< " " << (numsamples/(nprocs/2)) << "\n";
     for(int nux = 0; nux<(numsamples/(nprocs/2)); nux++) {
     //for(int nux = 0; nux < 1; nux++) {	
     // idk where this should be
-		hid_t file;
-        hid_t dataset;
-        hid_t filespace;
-        hid_t memspace;
-        hid_t cparms;
-        //TODO changese to be the correct dimensions
-        //TODO HEREHERHERHEREHEREHERE 
-        //does it want MPI_COMM_WORLD, MPI_COMM_SELF???? 
+		hid_t file, dataset, filespace, memspace;
+        //TODO changese to be the correct dimensions 
         //idk what H5Pcreate does, read about it
         MPI_Comm file_com;
         MPI_Comm_split(MPI_COMM_WORLD, (((rank/2)+nux)%200), rank, &file_com);        
         hid_t fapl_id = H5Pcreate(H5P_FILE_ACCESS);
         H5Pset_fapl_mpio(fapl_id, file_com, mpi_info);
         herr_t status, status_n;  
-		filename = files[((rank/2)+nux)%20];
+		filename = files[((rank/2)+nux)%50];
         // open the file and the dataset
-        // TODO how to get the dataset name?
-        //std::cout<<"file name " << filename.c_str() <<"\n";
         file = H5Fopen(filename.c_str(), H5F_ACC_RDONLY, H5P_DEFAULT);
 		hsize_t num_obj;
 		char name[100];
 		H5Gget_num_objs(file, &num_obj);
         if(num_obj ==1) {
-            //std::cout<< "here \n";
 		    H5Gget_objname_by_idx(file, 0,name, 100);
-		}
-  
-	    hid_t dapl_id;	
+		}	
         dataset = H5Dopen(file, name, H5P_DEFAULT);
         int rank_data;
         // Get dataset ran and dimensions
         // TODO ^ this will probably change the rest of the code
         
         filespace = H5Dget_space(dataset);
+       // can I use this to get the rank???/
         rank_data = H5Sget_simple_extent_ndims(filespace);
 		
-        // properties list????????
-        //std::cout<<"properties list \n";
         //std::cout<<"rank data " << rank_data << "\n";
-        cparms = H5Dget_create_plist(dataset);
 
 		// get total buf size
-		hsize_t dims[shape.size()];
-        hsize_t count[shape.size()];
-        hsize_t offset[shape.size()];
+		hsize_t dims[RANK];
+        hsize_t count[RANK];
+        hsize_t offset[RANK];
 		// unsure if I need this
         int rank_chunk;
         hsize_t i, j;
-		
+		//TODO: move after status_n
 		int x = shape[0];
 		int y = shape[1];
 		int z = shape[2];
@@ -160,9 +122,6 @@ int main(int argc, char *argv[])
 		memspace = H5Screate_simple(RANK, dims, NULL);
         //std::cout<<" memspace " << memspace << "\n";
 		
-        // read dataset back and "display"
-        // status = H5Dread(dataset, H5T_NATIVE_INT, memspace, filespace, H5P_DEFAULT, data_out);
-        // this is setting where the iter should start for the for loop
         // as well as take care of the odd case theoretically
 		if (xlines > 1) {
 			// if an  odd number then add one to the ranks below
@@ -222,11 +181,6 @@ int main(int argc, char *argv[])
         count[1] = 1;
         count[2] = 1;
         count[3] = 1;     
-        //maybe change this data type
-		double  buf[(xPerNode*yPerNode*zPerNode*sPerNode)];
-		// change this pointer
-		double *bufP = buf;
-		int seekvalue = -1;
 		// start -> a starting location for the hyperslab
         // stride -> the number of elements to separate each element or block to be selected
         // count -> the number of elemenets or blocks to select along each dimension
@@ -242,7 +196,6 @@ int main(int argc, char *argv[])
         //std::cout<<status<< " status\n";
         status = H5Dread(dataset, H5T_NATIVE_SHORT, memspace, filespace, 
 						 H5P_DEFAULT, data_out);
-        //std::cout<<"buf "<< buf[0]<<"\n";
         MPI_Comm_free(&file_com);
         H5Dclose(dataset);
         H5Fclose(file);
