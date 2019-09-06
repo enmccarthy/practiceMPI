@@ -22,13 +22,13 @@ CC=xlc++
 CXX=xlc++
 CFLAGS=-g -I$(HDF5)/include -Wall
 
-parallel: readFileHDF5
+parallel: readFileHDF51
 
 HDF5CLIBS=-L$(HDF5)/lib -lhdf5 
 
 readFileHDF5.o: readFileHDF5.cpp
 		$(MPICXX) -g $(CFLAGS_OPT) readFileHDF5.cpp $(CFLAGS_HDF5)	
-readFileHDF5: readFileHDF5.o
+readFileHDF51: readFileHDF5.o
 		$(MPICXX) -g readFileHDF5.o -o readFileHDF5 $(LIB_HDF5)
 
 clean: 

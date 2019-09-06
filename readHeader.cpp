@@ -14,7 +14,7 @@ int main(int argc, char *argv[])
 	// for now just get the shape of the data, I guess type is needed for this to understand how many
 	// bytes to read in
 	std::ifstream infile;
-	infile.open("test.npy", std::ios::binary);
+	infile.open("test1.npz", std::ios::binary);
 	char version;
 	infile.seekg(6, std::ios::beg);
 	infile.read(&version, 1);
@@ -39,9 +39,11 @@ int main(int argc, char *argv[])
 		// fix this
 		unsigned int holder = 12;
 		unsigned int len;
-		infile.read(reinterpret_cast<char *> (&len), 4);
+		infile.read((char *) (&len), 4);
 		headerLen = holder + len;
-	} 
+        std::cout<<headerLen<<" headerlen \n";
+	}
+   
 	//std::cout<<len<<" len ";  
 	char header[headerLen];
 	infile.read(header, headerLen);

@@ -36,6 +36,7 @@ int main(int argc, char *argv[])
     }
 
     closedir(dir);
+    double start2 = MPI_Wtime();
     int wordsize;
 	for (int i =0; i <argc; i++) { 
 		if (strcmp(argv[i], "-s")==0) {
@@ -151,5 +152,6 @@ int main(int argc, char *argv[])
 	}
 	MPI_Finalize();
 	std::cout<< "The process took " << end - start << " seconds to run. \n";
-	return 0;
+    std::cout<< "ignoring directory stuff " << end - start2 << " seconds to run \n";
+    return 0;
 }
