@@ -29,10 +29,11 @@ int main(int argc, char *argv[])
 	std::vector<std::string> files;
     std::string path = "/p/gpfs1/brainusr/datasets/cosmoflow/cosmoUniverse_2019_05_4parE/hdf5/";
     struct dirent *entry;
-    std::string directory[] = {"21688988/","21922619/","21997469/","22059249/","22098324/","22309462/",
-                                "21812950/","21929749/","22021490/","22074825/","22118427/"};
+    //std::string directory[] = {"21688988/","21922619/","21997469/","22059249/","22098324/","22309462/",
+    //                            "21812950/","21929749/","22021490/","22074825/","22118427/"};
+    std::string directory[] = {"21688988/"};
     //ski[ the first two bc they are . and ..
-    for(int dirInd = 0; dirInd < 11; dirInd++) {
+    for(int dirInd = 0; dirInd < 1; dirInd++) {
         std::string dirPath = path;
         dirPath.append(directory[dirInd]);
         int skip = 0;
@@ -77,7 +78,7 @@ int main(int argc, char *argv[])
         // for now just setting it to what it should be
         H5Gget_num_objs(file, &num_obj);
         H5Gget_objname_by_idx(file, 0, name, 100);
-        //std::cout<<name<<" name \n";    
+       // std::cout<<name<<" name \n";    
         dataset = H5Dopen(file, name, H5P_DEFAULT);
         int rank_data;
         // Get dataset ran and dimensions
@@ -102,9 +103,9 @@ int main(int argc, char *argv[])
 		int z = dims[2];
 		int s = dims[3]; 
     
-		int ylines = 2;
-		int xlines = 2;
-        int zlines = 1;
+		int ylines = 1;
+		int xlines = 1;
+        int zlines = 4;
         int samplelines = 1;
         
 		int xPerNode = x/xlines;
@@ -119,56 +120,45 @@ int main(int argc, char *argv[])
         dims_local[1] = yPerNode;
         dims_local[0] = xPerNode;
 		memspace = H5Screate_simple(RANK, dims_local, NULL);
-		if (xlines > 1) {
-			// if an  odd number then add one to the ranks below
-			if((rank%4) < (x%xPerNode)) {
-				offset[0] = ((xPerNode+1)*(rank%2));
-				xPerNode++; 
-			} else {
-                // in the even case x%xPerNode is 0
-          //      std::cout<<"here \n";
-                offset[0] = ((xPerNode+1)*(x%xPerNode))+(xPerNode*(((rank%4)-(x%xPerNode))%xlines));
-            //    std::cout<< "rank " << rank << "\n";
-              //  std::cout<< offset[3] << "\n";
+        int num_io_parts = 4;
+        int odd_offset;
+        if (xlines > 1) {
+            // this is theoretically the odd case but it has not been tested yet
+            // so everything with odd should be ignored
+            if((rank%num_io_parts) < int(dims[0]%xPerNode)) {
+                offset[0] = ((xPerNode+1)*(rank%num_io_parts));
+            } else {
+                // offset of this x dim for this rank;
+                // in most cases odd_offset will be 0
+                odd_offset = (xPerNode+1)*(dims[0]%xPerNode);
+                offset[0] = odd_offset +(xPerNode*((rank%num_io_parts)%xlines));
             }
-		} else {
-            offset[0] = 0;
+        } else {
+           offset[0] = 0;
         }
-		// if things are in chunks ??????
-       // std::cout<< xPerNode << " " << x << " " << xlines << " \n";
+
         if (ylines > 1) {
-			if((rank%4) < (y%yPerNode)) {
-				offset[1] = ((yPerNode+1)*(rank%2));
-				yPerNode++;
-			} else {
-				offset[1] = ((yPerNode+1)*(y%yPerNode)) + (yPerNode*(((rank%4)-(y%yPerNode))/ylines));
-			    
-            }   
-		} else {
+            if((rank%num_io_parts) < int(dims[1]%yPerNode)) {
+                offset[1] = ((yPerNode+1)*(rank%num_io_parts));
+             } else {
+                // offset of the y dim for this rank
+                odd_offset = (yPerNode+1)*(dims[1]%yPerNode);
+                offset[1] = odd_offset + (yPerNode*((rank%num_io_parts)/ylines));
+             }
+        } else {
             offset[1] = 0;
         }
-		if (zlines > 1) {
-			if((rank%4) < (z%zPerNode)) {
-				offset[2] = (zPerNode+1)*(rank%2);
-				zPerNode++;
-			} else {
-				offset[2] = ((zPerNode+1)*(z%zPerNode)) + (zPerNode*(((rank%2)-(z%zPerNode))%zlines));
-			}
-		} else {
+
+        if (zlines > 1) {
+            offset[2] = zPerNode*(rank%num_io_parts);
+        } else {
             offset[2] = 0;
         }
-		if (samplelines > 1) {
-			if ((rank%4) < (s%sPerNode)) {
-				offset[3] = ((sPerNode+1)*(rank%2));
-				sPerNode++;
-			} else {
-				offset[3] = ((sPerNode+1)*(s%sPerNode)) + 
-                    (sPerNode*(((rank%2)-(s%sPerNode))%samplelines));
-			}
-		} else {
-            offset[3] = 0; 
-        }
-         
+        // I have channel dim splits 
+        // all combos arent really tested
+        //add the rest later
+        offset[3] = 0;
+ 
 	    count[0] = 1;
         count[1] = 1;
         count[2] = 1;
@@ -184,8 +174,9 @@ int main(int argc, char *argv[])
 									  count, dims_local);
         status = H5Dread(dataset, H5T_NATIVE_SHORT, memspace, filespace, 
 						 H5P_DEFAULT, data_out);
-       // std::cout<<data_out[10]<<"\n";
+        std::cout<<data_out[10]<<"\n";
         //MPI_Comm_free(&file_com);
+       
         H5Dclose(dataset);
         H5Fclose(file);
     }
