@@ -55,17 +55,32 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	MPI_Comm_size(MPI_COMM_WORLD, &nprocs); 
     MPI_Info mpi_info = MPI_INFO_NULL;
-	//int nux = 0;
+	MPI_Group world_group;
+    MPI_Comm_group(MPI_COMM_WORLD, &world_group);
+
+    int n = nprocs/4;
+    int ranks[n];
+    int count = 0;
+    for(int i = rank/4; i< (rank/4+4); i++){
+        ranks[count] = i;
+        count++;
+    }
+    //Group test
+    //MPI_Group file_group;
+    //MPI_Group_incl(world_group, 4, ranks, &file_group);
+    //MPI_Comm file_comm;
+    //MPI_Comm_create_group(MPI_COMM_WORLD, file_group, 0, &file_comm);
+    
+    //int nux = 0;
+    MPI_Comm m_comm;
+    int color = rank/4;
+    MPI_Comm_split(MPI_COMM_WORLD, color, rank, &m_comm); 
     for(int nux = 0; nux<(numsamples/(nprocs/4)); nux++) {
 	//for(int nux = 0; nux<1; nux++) {
         hid_t file, dataset, filespace, memspace;
         //try this without splitting the comm
-        //MPI_Comm file_com;
-        //file_com = MPI_COMM_WORLD;
-        //MPI_Comm_split(MPI_COMM_WORLD, (((rank/4)+nux)%1), rank, &file_com);        
-         
         hid_t fapl_id = H5Pcreate(H5P_FILE_ACCESS);
-        H5Pset_fapl_mpio(fapl_id, MPI_COMM_WORLD, mpi_info);
+        H5Pset_fapl_mpio(fapl_id, m_comm, mpi_info);
         herr_t status, status_n;  
 		filename = files[((rank/4)+nux)%numsamples];
         //fiilename = files[10];
@@ -174,14 +189,17 @@ int main(int argc, char *argv[])
 									  count, dims_local);
         status = H5Dread(dataset, H5T_NATIVE_SHORT, memspace, filespace, 
 						 H5P_DEFAULT, data_out);
-        std::cout<<data_out[10]<<"\n";
+        //std::cout<<data_out[10]<<"\n";
         //MPI_Comm_free(&file_com);
        
         H5Dclose(dataset);
         H5Fclose(file);
     }
 	double end = MPI_Wtime();
-	if (false) {
+	MPI_Group_free(&world_group);
+    MPI_Group_free(&file_group);
+    MPI_Comm_free(&file_comm);
+    if (false) {
 		std::ofstream output;
 		std::string outname = "output";
 		std::string out;
