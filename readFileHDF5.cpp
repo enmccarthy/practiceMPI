@@ -72,14 +72,14 @@ int main(int argc, char *argv[])
     //MPI_Comm_create_group(MPI_COMM_WORLD, file_group, 0, &file_comm);
     
     //int nux = 0;
-   MPI_Comm m_comm;
-   int color = rank/4;
-   MPI_Comm_split(MPI_COMM_WORLD, color, rank, &m_comm); 
-   hid_t fapl_id = H5Pcreate(H5P_FILE_ACCESS);
-   H5Pset_fapl_mpio(fapl_id, m_comm, mpi_info);
-   short int data_out[512*512*(512/4)*4];
-   double start = MPI_Wtime();
-  for(int nux = 0; nux<numsamples; nux+= nprocs/4) {
+  MPI_Comm m_comm;
+  int color = rank/4;
+  MPI_Comm_split(MPI_COMM_WORLD, color, rank, &m_comm); 
+  hid_t fapl_id = H5Pcreate(H5P_FILE_ACCESS);
+  H5Pset_fapl_mpio(fapl_id, m_comm, mpi_info);
+  std::vector<short> data_out(512*512*(512/4)*4);
+  double start = MPI_Wtime();
+  for(int i = rank/4; nux<numsamples; nux+= nprocs/4) {
     hid_t file, dataset, filespace, memspace;
     herr_t status, status_n;  
     filename = files[nux];
